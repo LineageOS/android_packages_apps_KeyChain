@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "AAAAWn//+kA\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 2597
+      },
+      "writtenOn": "2012-08-25T18:44:14Z",
+      "side": 1,
+      "message": "Done\nOverigens is alleen \u003cresources\u003e verplicht, maar omdat het AOSP dit in alle andere vertaalbestanden wel heeft gedaan, zal ik dit erbij zetten.",
+      "parentUuid": "AAAAWn//+k0\u003d",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "AAAAWn//+kw\u003d",
         "filename": "res/values-nl/strings.xml",
         "patchSetId": 1
@@ -30,6 +48,24 @@
       "writtenOn": "2012-08-25T18:21:25Z",
       "side": 1,
       "message": "Indien u dit toestaat?",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAWn//+j8\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 2597
+      },
+      "writtenOn": "2012-08-25T18:44:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "AAAAWn//+kw\u003d",
       "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "AAAAWn//+j0\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 2597
+      },
+      "writtenOn": "2012-08-25T18:44:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "AAAAWn//+ko\u003d",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "AAAAWn//+kk\u003d",
         "filename": "res/values-nl/strings.xml",
         "patchSetId": 1
@@ -64,6 +118,24 @@
       "writtenOn": "2012-08-25T18:21:25Z",
       "side": 1,
       "message": "...een PKCS #12-bestand met extensie %1$s of %2$s uit de (interne of) externe opslag?",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAWn//+jw\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 2597
+      },
+      "writtenOn": "2012-08-25T18:44:14Z",
+      "side": 1,
+      "message": "Done\n(volgens mij kan het niet uit de interne opslag (/data m.u.v. /data/media op apparaten met een grote interne opslag)",
+      "parentUuid": "AAAAWn//+kk\u003d",
       "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
