@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "AAAAWn//+k0\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 4297
+      },
+      "writtenOn": "2012-08-25T18:21:25Z",
+      "side": 1,
+      "message": "\u003cresources xmlns:android\u003d\"http://schemas.android.com/apk/res/android\" xmlns:xliff\u003d\"urn:oasis:names:tc:xliff:document:1.2\"\u003e?",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAWn//+kw\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 4297
+      },
+      "writtenOn": "2012-08-25T18:21:25Z",
+      "side": 1,
+      "message": "Indien u dit toestaat?",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAWn//+ko\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 4297
+      },
+      "writtenOn": "2012-08-25T18:21:25Z",
+      "side": 1,
+      "message": "Kromme zin. Misschien \"... herkent als %s. U zou de app (echter) alleen toegang tot het certificaat moeten geven indien u de app vertrouwt.",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAWn//+kk\u003d",
+        "filename": "res/values-nl/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 4297
+      },
+      "writtenOn": "2012-08-25T18:21:25Z",
+      "side": 1,
+      "message": "...een PKCS #12-bestand met extensie %1$s of %2$s uit de (interne of) externe opslag?",
+      "revId": "bd34e41ed6d9a83feea4db404349c4f022f993e3",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
