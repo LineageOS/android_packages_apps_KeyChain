@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "AAAAen//9u0\u003d",
+        "filename": "res/values-fr/strings.xml",
+        "patchSetId": 2
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 5596
+      },
+      "writtenOn": "2013-04-07T06:15:01Z",
+      "side": 1,
+      "message": "En relisant ça me paraît bizarre. Ça ne serait pas mieux  \"Aucun certificat trouvé\" ou \"Aucun certificat\" ?",
+      "revId": "264c0780fe075c5694993b565930808671304fbe",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
