@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "AAAAen//4lA\u003d",
+        "filename": "res/values-es/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 3134
+      },
+      "writtenOn": "2013-04-20T03:10:37Z",
+      "side": 1,
+      "message": "...indentificado al servidor...",
+      "revId": "939ce0326b1ae821990d4d9078e3418680a6f5ac",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
