@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "AAAAen//3qI\u003d",
+        "filename": "res/values-es/strings.xml",
+        "patchSetId": 3
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 2134
+      },
+      "writtenOn": "2013-04-21T21:59:35Z",
+      "side": 1,
+      "message": "comma added",
+      "revId": "73ff3c23b0ec8700154a40c27bd43d3a82da3ddd",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAAen//3qQ\u003d",
+        "filename": "res/values-es/strings.xml",
+        "patchSetId": 3
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 2134
+      },
+      "writtenOn": "2013-04-21T21:59:35Z",
+      "side": 1,
+      "message": "Missing \u0027s\u0027 letter restored.",
+      "revId": "73ff3c23b0ec8700154a40c27bd43d3a82da3ddd",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
