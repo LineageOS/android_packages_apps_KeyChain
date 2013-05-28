@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "iDqnNlE",
+        "filename": "res/values-de/strings.xml",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 4884
+      },
+      "writtenOn": "2013-05-28T23:13:59Z",
+      "side": 1,
+      "message": "\u0027Schlüsselbund\u0027 finde ich auch eher passend. Wir auch so bei Mac OSX genannt.",
+      "parentUuid": "iLq6Jm0",
+      "revId": "e0903eda3fbd495f790c1b4543c2fb351491e953",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "iJqJos0",
         "filename": "res/values-de/strings.xml",
         "patchSetId": 1
