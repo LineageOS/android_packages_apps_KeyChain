@@ -104,15 +104,8 @@ public class KeyChainService extends IntentService {
             if (!mKeyStore.grant(keystoreAlias, uid)) {
                 return null;
             }
-            final int userHandle = UserHandle.getUserId(uid);
-            final int systemUidForUser = UserHandle.getUid(userHandle, Process.SYSTEM_UID);
 
-            final StringBuilder sb = new StringBuilder();
-            sb.append(systemUidForUser);
-            sb.append('_');
-            sb.append(keystoreAlias);
-
-            return sb.toString();
+            return keystoreAlias;
         }
 
         @Override public byte[] getCertificate(String alias) {
