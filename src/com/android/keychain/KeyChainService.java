@@ -101,11 +101,7 @@ public class KeyChainService extends IntentService {
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int uid = Binder.getCallingUid();
-            if (!mKeyStore.grant(keystoreAlias, uid)) {
-                return null;
-            }
-
-            return keystoreAlias;
+            return mKeyStore.grant(keystoreAlias, uid);
         }
 
         @Override public byte[] getCertificate(String alias) {
