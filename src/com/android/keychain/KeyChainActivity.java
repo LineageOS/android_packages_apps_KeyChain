@@ -144,7 +144,7 @@ public class KeyChainActivity extends Activity {
     private void chooseCertificate() {
         // Start loading the set of certs to choose from now- if device policy doesn't return an
         // alias, having aliases loading already will save some time waiting for UI to start.
-        final AliasLoader loader = new AliasLoader();
+        final AliasLoader loader = new AliasLoader(mKeyStore, this);
         loader.execute();
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
@@ -192,14 +192,21 @@ public class KeyChainActivity extends Activity {
         }
     }
 
-    private class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
+    private static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
+        private final KeyStore mKeyStore;
+        private final Context mContext;
+        public AliasLoader(KeyStore keyStore, Context context) {
+          mKeyStore = keyStore;
+          mContext = context;
+        }
+
         @Override protected CertificateAdapter doInBackground(Void... params) {
             String[] aliasArray = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
             List<String> aliasList = ((aliasArray == null)
                                       ? Collections.<String>emptyList()
                                       : Arrays.asList(aliasArray));
             Collections.sort(aliasList);
-            return new CertificateAdapter(aliasList);
+            return new CertificateAdapter(mKeyStore, mContext, aliasList);
         }
     }
 
@@ -323,12 +330,17 @@ public class KeyChainActivity extends Activity {
         dialog.show();
     }
 
-    private class CertificateAdapter extends BaseAdapter {
+    private static class CertificateAdapter extends BaseAdapter {
         private final List<String> mAliases;
         private final List<String> mSubjects = new ArrayList<String>();
-        private CertificateAdapter(List<String> aliases) {
+        private final KeyStore mKeyStore;
+        private final Context mContext;
+
+        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases) {
             mAliases = aliases;
             mSubjects.addAll(Collections.nCopies(aliases.size(), (String) null));
+            mKeyStore = keyStore;
+            mContext = context;
         }
         @Override public int getCount() {
             return mAliases.size();
@@ -342,7 +354,7 @@ public class KeyChainActivity extends Activity {
         @Override public View getView(final int adapterPosition, View view, ViewGroup parent) {
             ViewHolder holder;
             if (view == null) {
-                LayoutInflater inflater = LayoutInflater.from(KeyChainActivity.this);
+                LayoutInflater inflater = LayoutInflater.from(mContext);
                 view = inflater.inflate(R.layout.cert_item, parent, false);
                 holder = new ViewHolder();
                 holder.mAliasTextView = (TextView) view.findViewById(R.id.cert_item_alias);
