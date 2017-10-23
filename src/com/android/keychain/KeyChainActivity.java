@@ -46,6 +46,7 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.TextView;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -192,7 +193,8 @@ public class KeyChainActivity extends Activity {
         }
     }
 
-    private static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
+    @VisibleForTesting
+    static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
         private final KeyStore mKeyStore;
         private final Context mContext;
         public AliasLoader(KeyStore keyStore, Context context) {
@@ -330,7 +332,8 @@ public class KeyChainActivity extends Activity {
         dialog.show();
     }
 
-    private static class CertificateAdapter extends BaseAdapter {
+    @VisibleForTesting
+    static class CertificateAdapter extends BaseAdapter {
         private final List<String> mAliases;
         private final List<String> mSubjects = new ArrayList<String>();
         private final KeyStore mKeyStore;
