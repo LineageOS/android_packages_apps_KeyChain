@@ -47,6 +47,7 @@ import android.widget.ListView;
 import android.widget.RadioButton;
 import android.widget.TextView;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.keychain.internal.KeyInfoProvider;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -58,6 +59,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -145,7 +147,8 @@ public class KeyChainActivity extends Activity {
     private void chooseCertificate() {
         // Start loading the set of certs to choose from now- if device policy doesn't return an
         // alias, having aliases loading already will save some time waiting for UI to start.
-        final AliasLoader loader = new AliasLoader(mKeyStore, this);
+        // TODO: Once KeyChainService supports this interface, replace with that instance.
+        final AliasLoader loader = new AliasLoader(mKeyStore, this, (alias) -> { return true; });
         loader.execute();
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
@@ -197,18 +200,22 @@ public class KeyChainActivity extends Activity {
     static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
         private final KeyStore mKeyStore;
         private final Context mContext;
-        public AliasLoader(KeyStore keyStore, Context context) {
+        private final KeyInfoProvider mInfoProvider;
+
+        public AliasLoader(KeyStore keyStore, Context context, KeyInfoProvider infoProvider) {
           mKeyStore = keyStore;
           mContext = context;
+          mInfoProvider = infoProvider;
         }
 
         @Override protected CertificateAdapter doInBackground(Void... params) {
             String[] aliasArray = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
-            List<String> aliasList = ((aliasArray == null)
+            List<String> rawAliasList = ((aliasArray == null)
                                       ? Collections.<String>emptyList()
                                       : Arrays.asList(aliasArray));
-            Collections.sort(aliasList);
-            return new CertificateAdapter(mKeyStore, mContext, aliasList);
+            return new CertificateAdapter(mKeyStore, mContext,
+                    rawAliasList.stream().filter(mInfoProvider::isUserSelectable).sorted()
+                    .collect(Collectors.toList()));
         }
     }
 
