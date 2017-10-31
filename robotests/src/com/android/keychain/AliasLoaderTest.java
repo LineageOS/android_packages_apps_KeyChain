@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 import android.security.Credentials;
 import android.security.KeyStore;
+import com.android.keychain.internal.KeyInfoProvider;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -37,9 +38,17 @@ import org.robolectric.shadows.ShadowApplication;
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class AliasLoaderTest {
+    private KeyInfoProvider mDummyInfoProvider;
 
     @Before
-    public void setUp() {}
+    public void setUp() {
+        mDummyInfoProvider =
+                new KeyInfoProvider() {
+                    public boolean isUserSelectable(String alias) {
+                        return true;
+                    }
+                };
+    }
 
     @Test
     public void testAliasLoader_loadsAllAliases()
@@ -49,7 +58,8 @@ public final class AliasLoaderTest {
         when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(new String[] {"b", "c", "a"});
 
         KeyChainActivity.AliasLoader loader =
-                new KeyChainActivity.AliasLoader(keyStore, RuntimeEnvironment.application);
+                new KeyChainActivity.AliasLoader(
+                        keyStore, RuntimeEnvironment.application, mDummyInfoProvider);
         loader.execute();
 
         ShadowApplication.runBackgroundTasks();
@@ -59,5 +69,46 @@ public final class AliasLoaderTest {
         Assert.assertEquals("a", result.getItem(0));
         Assert.assertEquals("b", result.getItem(1));
         Assert.assertEquals("c", result.getItem(2));
+    }
+
+    @Test
+    public void testAliasLoader_copesWithNoAliases()
+            throws InterruptedException, ExecutionException, CancellationException,
+                    TimeoutException {
+        KeyStore keyStore = mock(KeyStore.class);
+        when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(null);
+
+        KeyChainActivity.AliasLoader loader =
+                new KeyChainActivity.AliasLoader(
+                        keyStore, RuntimeEnvironment.application, mDummyInfoProvider);
+        loader.execute();
+
+        ShadowApplication.runBackgroundTasks();
+        KeyChainActivity.CertificateAdapter result = loader.get(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(result);
+        Assert.assertEquals(0, result.getCount());
+    }
+
+    @Test
+    public void testAliasLoader_filtersNonUserSelectableAliases()
+            throws InterruptedException, ExecutionException, CancellationException,
+                    TimeoutException {
+        KeyStore keyStore = mock(KeyStore.class);
+        when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(new String[] {"a", "b", "c"});
+        KeyInfoProvider infoProvider = mock(KeyInfoProvider.class);
+        when(infoProvider.isUserSelectable("a")).thenReturn(false);
+        when(infoProvider.isUserSelectable("b")).thenReturn(true);
+        when(infoProvider.isUserSelectable("c")).thenReturn(false);
+
+        KeyChainActivity.AliasLoader loader =
+                new KeyChainActivity.AliasLoader(
+                        keyStore, RuntimeEnvironment.application, infoProvider);
+        loader.execute();
+
+        ShadowApplication.runBackgroundTasks();
+        KeyChainActivity.CertificateAdapter result = loader.get(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(result);
+        Assert.assertEquals(1, result.getCount());
+        Assert.assertEquals("b", result.getItem(0));
     }
 }
