@@ -37,6 +37,7 @@ import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
 import android.util.Log;
+import com.android.keychain.internal.GrantsDatabase;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -54,25 +55,8 @@ public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
 
-    private static final String DATABASE_NAME = "grants.db";
-    private static final int DATABASE_VERSION = 1;
-    private static final String TABLE_GRANTS = "grants";
-    private static final String GRANTS_ALIAS = "alias";
-    private static final String GRANTS_GRANTEE_UID = "uid";
-
     /** created in onCreate(), closed in onDestroy() */
-    public DatabaseHelper mDatabaseHelper;
-
-    private static final String SELECTION_COUNT_OF_MATCHING_GRANTS =
-            "SELECT COUNT(*) FROM " + TABLE_GRANTS
-                    + " WHERE " + GRANTS_GRANTEE_UID + "=? AND " + GRANTS_ALIAS + "=?";
-
-    private static final String SELECT_GRANTS_BY_UID_AND_ALIAS =
-            GRANTS_GRANTEE_UID + "=? AND " + GRANTS_ALIAS + "=?";
-
-    private static final String SELECTION_GRANTS_BY_UID = GRANTS_GRANTEE_UID + "=?";
-
-    private static final String SELECTION_GRANTS_BY_ALIAS = GRANTS_ALIAS + "=?";
+    public GrantsDatabase mGrantsDb;
 
     public KeyChainService() {
         super(KeyChainService.class.getSimpleName());
@@ -80,14 +64,14 @@ public class KeyChainService extends IntentService {
 
     @Override public void onCreate() {
         super.onCreate();
-        mDatabaseHelper = new DatabaseHelper(this);
+        mGrantsDb = new GrantsDatabase(this);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mDatabaseHelper.close();
-        mDatabaseHelper = null;
+        mGrantsDb.destroy();
+        mGrantsDb = null;
     }
 
     private final IKeyChainService.Stub mIKeyChainService = new IKeyChainService.Stub() {
@@ -124,7 +108,7 @@ public class KeyChainService extends IntentService {
             }
 
             final int callingUid = getCallingUid();
-            if (!hasGrantInternal(mDatabaseHelper.getReadableDatabase(), callingUid, alias)) {
+            if (!mGrantsDb.hasGrant(callingUid, alias)) {
                 throw new IllegalStateException("uid " + callingUid
                         + " doesn't have permission to access the requested alias");
             }
@@ -203,7 +187,7 @@ public class KeyChainService extends IntentService {
             if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
                 return false;
             }
-            removeGrantsForAlias(alias);
+            mGrantsDb.removeGrantsForAlias(alias);
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
@@ -217,7 +201,7 @@ public class KeyChainService extends IntentService {
         @Override public boolean reset() {
             // only Settings should be able to reset
             checkSystemCaller();
-            removeAllGrants(mDatabaseHelper.getWritableDatabase());
+            mGrantsDb.removeAllGrants();
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
                 // delete user-installed CA certs
@@ -283,12 +267,12 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean hasGrant(int uid, String alias) {
             checkSystemCaller();
-            return hasGrantInternal(mDatabaseHelper.getReadableDatabase(), uid, alias);
+            return mGrantsDb.hasGrant(uid, alias);
         }
 
         @Override public void setGrant(int uid, String alias, boolean value) {
             checkSystemCaller();
-            setGrantInternal(mDatabaseHelper.getWritableDatabase(), uid, alias, value);
+            mGrantsDb.setGrant(uid, alias, value);
             broadcastPermissionChange(uid, alias, value);
             broadcastLegacyStorageChange();
         }
@@ -359,60 +343,6 @@ public class KeyChainService extends IntentService {
         }
     };
 
-    private boolean hasGrantInternal(final SQLiteDatabase db, final int uid, final String alias) {
-        final long numMatches = DatabaseUtils.longForQuery(db, SELECTION_COUNT_OF_MATCHING_GRANTS,
-                new String[]{String.valueOf(uid), alias});
-        return numMatches > 0;
-    }
-
-    private void setGrantInternal(final SQLiteDatabase db,
-            final int uid, final String alias, final boolean value) {
-        if (value) {
-            if (!hasGrantInternal(db, uid, alias)) {
-                final ContentValues values = new ContentValues();
-                values.put(GRANTS_ALIAS, alias);
-                values.put(GRANTS_GRANTEE_UID, uid);
-                db.insert(TABLE_GRANTS, GRANTS_ALIAS, values);
-            }
-        } else {
-            db.delete(TABLE_GRANTS, SELECT_GRANTS_BY_UID_AND_ALIAS,
-                    new String[]{String.valueOf(uid), alias});
-        }
-    }
-
-    private void removeGrantsForAlias(String alias) {
-        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
-        db.delete(TABLE_GRANTS, SELECTION_GRANTS_BY_ALIAS, new String[] {alias});
-    }
-
-    private void removeAllGrants(final SQLiteDatabase db) {
-        db.delete(TABLE_GRANTS, null /* whereClause */, null /* whereArgs */);
-    }
-
-    private class DatabaseHelper extends SQLiteOpenHelper {
-        public DatabaseHelper(Context context) {
-            super(context, DATABASE_NAME, null /* CursorFactory */, DATABASE_VERSION);
-        }
-
-        @Override
-        public void onCreate(final SQLiteDatabase db) {
-            db.execSQL("CREATE TABLE " + TABLE_GRANTS + " (  "
-                    + GRANTS_ALIAS + " STRING NOT NULL,  "
-                    + GRANTS_GRANTEE_UID + " INTEGER NOT NULL,  "
-                    + "UNIQUE (" + GRANTS_ALIAS + "," + GRANTS_GRANTEE_UID + "))");
-        }
-
-        @Override
-        public void onUpgrade(final SQLiteDatabase db, int oldVersion, final int newVersion) {
-            Log.e(TAG, "upgrade from version " + oldVersion + " to version " + newVersion);
-
-            if (oldVersion == 1) {
-                // the first upgrade step goes here
-                oldVersion++;
-            }
-        }
-    }
-
     @Override public IBinder onBind(Intent intent) {
         if (IKeyChainService.class.getName().equals(intent.getAction())) {
             return mIKeyChainService;
@@ -423,35 +353,7 @@ public class KeyChainService extends IntentService {
     @Override
     protected void onHandleIntent(final Intent intent) {
         if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())) {
-            purgeOldGrants();
-        }
-    }
-
-    private void purgeOldGrants() {
-        final PackageManager packageManager = getPackageManager();
-        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
-        Cursor cursor = null;
-        db.beginTransaction();
-        try {
-            cursor = db.query(TABLE_GRANTS,
-                    new String[]{GRANTS_GRANTEE_UID}, null, null, GRANTS_GRANTEE_UID, null, null);
-            while (cursor.moveToNext()) {
-                final int uid = cursor.getInt(0);
-                final boolean packageExists = packageManager.getPackagesForUid(uid) != null;
-                if (packageExists) {
-                    continue;
-                }
-                Log.d(TAG, "deleting grants for UID " + uid
-                        + " because its package is no longer installed");
-                db.delete(TABLE_GRANTS, SELECTION_GRANTS_BY_UID,
-                        new String[]{Integer.toString(uid)});
-            }
-            db.setTransactionSuccessful();
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-            db.endTransaction();
+            mGrantsDb.purgeOldGrants(getPackageManager());
         }
     }
 
