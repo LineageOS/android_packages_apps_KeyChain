@@ -147,8 +147,24 @@ public class KeyChainActivity extends Activity {
     private void chooseCertificate() {
         // Start loading the set of certs to choose from now- if device policy doesn't return an
         // alias, having aliases loading already will save some time waiting for UI to start.
-        // TODO: Once KeyChainService supports this interface, replace with that instance.
-        final AliasLoader loader = new AliasLoader(mKeyStore, this, (alias) -> { return true; });
+        KeyInfoProvider keyInfoProvider = new KeyInfoProvider() {
+            public boolean isUserSelectable(String alias) {
+                try (KeyChain.KeyChainConnection connection =
+                        KeyChain.bind(KeyChainActivity.this)) {
+                    return connection.getService().isUserSelectable(alias);
+                }
+                catch (InterruptedException ignored) {
+                    Log.e(TAG, "interrupted while checking if key is user-selectable", ignored);
+                    Thread.currentThread().interrupt();
+                    return false;
+                } catch (Exception ignored) {
+                    Log.e(TAG, "error while checking if key is user-selectable", ignored);
+                    return false;
+                }
+            }
+        };
+
+        final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider);
         loader.execute();
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
@@ -479,6 +495,11 @@ public class KeyChainActivity extends Activity {
                 if (mAlias != null) {
                     KeyChain.KeyChainConnection connection = KeyChain.bind(KeyChainActivity.this);
                     try {
+                        if (!connection.getService().isUserSelectable(mAlias)) {
+                            Log.w(TAG, String.format("Alias %s not user-selectable.", mAlias));
+                            //TODO: Should we invoke the callback with null here to indicate error?
+                            return null;
+                        }
                         connection.getService().setGrant(mSenderUid, mAlias, true);
                     } finally {
                         connection.close();
