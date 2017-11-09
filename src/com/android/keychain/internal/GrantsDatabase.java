@@ -50,6 +50,11 @@ public class GrantsDatabase {
 
     private static final String SELECTION_GRANTS_BY_ALIAS = GRANTS_ALIAS + "=?";
 
+    private static final String TABLE_SELECTABLE = "userselectable";
+    private static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
+    private static final String COUNT_SELECTABILITY_FOR_ALIAS =
+            "SELECT COUNT(*) FROM " + TABLE_SELECTABLE + " WHERE " + GRANTS_ALIAS + "=?";
+
     public DatabaseHelper mDatabaseHelper;
 
     private class DatabaseHelper extends SQLiteOpenHelper {
@@ -71,6 +76,18 @@ public class GrantsDatabase {
                             + GRANTS_ALIAS
                             + ","
                             + GRANTS_GRANTEE_UID
+                            + "))");
+
+            db.execSQL(
+                    "CREATE TABLE "
+                            + TABLE_SELECTABLE
+                            + " (  "
+                            + GRANTS_ALIAS
+                            + " STRING NOT NULL,  "
+                            + SELECTABLE_IS_SELECTABLE
+                            + " STRING NOT NULL,  "
+                            + "UNIQUE ("
+                            + GRANTS_ALIAS
                             + "))");
         }
 
@@ -169,6 +186,39 @@ public class GrantsDatabase {
                 cursor.close();
             }
             db.endTransaction();
+        }
+    }
+
+    public void setIsUserSelectable(final String alias, final boolean userSelectable) {
+        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
+        final ContentValues values = new ContentValues();
+        values.put(GRANTS_ALIAS, alias);
+        values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(userSelectable));
+
+        db.replace(TABLE_SELECTABLE, null, values);
+    }
+
+    public boolean isUserSelectable(final String alias) {
+        final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
+        try (Cursor res =
+                db.query(
+                        TABLE_SELECTABLE,
+                        new String[] {SELECTABLE_IS_SELECTABLE},
+                        SELECTION_GRANTS_BY_ALIAS,
+                        new String[] {alias},
+                        null /* group by */,
+                        null /* having */,
+                        null /* order by */)) {
+            if (res == null || !res.moveToNext()) {
+                return false;
+            }
+
+            boolean isSelectable = Boolean.parseBoolean(res.getString(0));
+            if (!res.isAfterLast()) {
+                // BUG! Should not have more than one result for any given alias.
+                Log.w(TAG, String.format("Have more than one result for alias %s", alias));
+            }
+            return isSelectable;
         }
     }
 }

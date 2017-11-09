@@ -94,4 +94,21 @@ public final class GrantsDatabaseTest {
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID2, DUMMY_ALIAS));
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID, DUMMY_ALIAS2));
     }
+
+    @Test
+    public void testIsUserSelectable() {
+        Assert.assertFalse(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, true);
+        Assert.assertTrue(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
+    }
+
+    @Test
+    public void testSetUserSelectable() {
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, true);
+        Assert.assertTrue(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, false);
+        Assert.assertFalse(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, true);
+        Assert.assertTrue(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
+    }
 }
