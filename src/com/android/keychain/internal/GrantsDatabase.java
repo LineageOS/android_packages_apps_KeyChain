@@ -154,19 +154,11 @@ public class GrantsDatabase {
 
     public void purgeOldGrants(PackageManager pm) {
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
-        Cursor cursor = null;
         db.beginTransaction();
-        try {
-            cursor =
-                    db.query(
-                            TABLE_GRANTS,
-                            new String[] {GRANTS_GRANTEE_UID},
-                            null,
-                            null,
-                            GRANTS_GRANTEE_UID,
-                            null,
-                            null);
-            while (cursor.moveToNext()) {
+        try (Cursor cursor = db.query(
+                TABLE_GRANTS,
+                new String[] {GRANTS_GRANTEE_UID}, null, null, GRANTS_GRANTEE_UID, null, null)) {
+            while ((cursor != null) && (cursor.moveToNext())) {
                 final int uid = cursor.getInt(0);
                 final boolean packageExists = pm.getPackagesForUid(uid) != null;
                 if (packageExists) {
@@ -181,12 +173,9 @@ public class GrantsDatabase {
                         new String[] {Integer.toString(uid)});
             }
             db.setTransactionSuccessful();
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-            db.endTransaction();
         }
+
+        db.endTransaction();
     }
 
     public void setIsUserSelectable(final String alias, final boolean userSelectable) {
