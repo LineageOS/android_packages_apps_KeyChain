@@ -98,14 +98,33 @@ public class KeyChainService extends IntentService {
             return mKeyStore.get(Credentials.CA_CERTIFICATE + alias);
         }
 
-        private void checkArgs(String alias) {
+        @Override public boolean isUserSelectable(String alias) {
+            validateAlias(alias);
+            return mGrantsDb.isUserSelectable(alias);
+        }
+
+        @Override public void setUserSelectable(String alias, boolean isUserSelectable) {
+            validateAlias(alias);
+            checkSystemCaller();
+            mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
+        }
+
+        private void validateAlias(String alias) {
             if (alias == null) {
                 throw new NullPointerException("alias == null");
             }
+        }
+
+        private void validateKeyStoreState() {
             if (!mKeyStore.isUnlocked()) {
                 throw new IllegalStateException("keystore is "
                         + mKeyStore.state().toString());
             }
+        }
+
+        private void checkArgs(String alias) {
+            validateAlias(alias);
+            validateKeyStoreState();
 
             final int callingUid = getCallingUid();
             if (!mGrantsDb.hasGrant(callingUid, alias)) {
