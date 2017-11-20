@@ -79,24 +79,28 @@ public final class GrantsDatabaseTest {
     }
 
     @Test
-    public void testRemoveGrantsForAlias() {
+    public void testRemoveAliasInformation() {
         mGrantsDB.setGrant(DUMMY_UID, DUMMY_ALIAS, true);
         mGrantsDB.setGrant(DUMMY_UID2, DUMMY_ALIAS, true);
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, true);
         Assert.assertTrue(mGrantsDB.hasGrant(DUMMY_UID, DUMMY_ALIAS));
-        mGrantsDB.removeGrantsForAlias(DUMMY_ALIAS);
+        mGrantsDB.removeAliasInformation(DUMMY_ALIAS);
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID, DUMMY_ALIAS));
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID2, DUMMY_ALIAS));
+        Assert.assertFalse(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
     }
 
     @Test
-    public void testRemoveAllGrants() {
+    public void testRemoveAllAliasesInformation() {
         mGrantsDB.setGrant(DUMMY_UID, DUMMY_ALIAS, true);
         mGrantsDB.setGrant(DUMMY_UID2, DUMMY_ALIAS, true);
         mGrantsDB.setGrant(DUMMY_UID, DUMMY_ALIAS2, true);
-        mGrantsDB.removeAllGrants();
+        mGrantsDB.setIsUserSelectable(DUMMY_ALIAS, true);
+        mGrantsDB.removeAllAliasesInformation();
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID, DUMMY_ALIAS));
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID2, DUMMY_ALIAS));
         Assert.assertFalse(mGrantsDB.hasGrant(DUMMY_UID, DUMMY_ALIAS2));
+        Assert.assertFalse(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
     }
 
     @Test

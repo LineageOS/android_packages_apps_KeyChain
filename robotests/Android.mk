@@ -38,6 +38,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 
 LOCAL_TEST_PACKAGE := KeyChain
 
+LOCAL_ROBOTEST_FILES := $(call find-files-in-subdirs,$(LOCAL_PATH)/src,*Test.java,.)
+
 LOCAL_INSTRUMENT_SOURCE_DIRS := $(dir $(LOCAL_PATH))../src
 
 LOCAL_ROBOTEST_TIMEOUT := 36000

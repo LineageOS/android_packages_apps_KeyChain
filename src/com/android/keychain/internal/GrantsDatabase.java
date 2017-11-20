@@ -142,14 +142,16 @@ public class GrantsDatabase {
         }
     }
 
-    public void removeGrantsForAlias(String alias) {
+    public void removeAliasInformation(String alias) {
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
         db.delete(TABLE_GRANTS, SELECTION_GRANTS_BY_ALIAS, new String[] {alias});
+        db.delete(TABLE_SELECTABLE, SELECTION_GRANTS_BY_ALIAS, new String[] {alias});
     }
 
-    public void removeAllGrants() {
+    public void removeAllAliasesInformation() {
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
         db.delete(TABLE_GRANTS, null /* whereClause */, null /* whereArgs */);
+        db.delete(TABLE_SELECTABLE, null /* whereClause */, null /* whereArgs */);
     }
 
     public void purgeOldGrants(PackageManager pm) {
@@ -203,7 +205,7 @@ public class GrantsDatabase {
             }
 
             boolean isSelectable = Boolean.parseBoolean(res.getString(0));
-            if (!res.isAfterLast()) {
+            if (res.getCount() > 1) {
                 // BUG! Should not have more than one result for any given alias.
                 Log.w(TAG, String.format("Have more than one result for alias %s", alias));
             }
