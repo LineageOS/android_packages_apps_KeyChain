@@ -206,7 +206,7 @@ public class KeyChainService extends IntentService {
             if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
                 return false;
             }
-            mGrantsDb.removeGrantsForAlias(alias);
+            mGrantsDb.removeAliasInformation(alias);
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
@@ -220,7 +220,7 @@ public class KeyChainService extends IntentService {
         @Override public boolean reset() {
             // only Settings should be able to reset
             checkSystemCaller();
-            mGrantsDb.removeAllGrants();
+            mGrantsDb.removeAllAliasesInformation();
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
                 // delete user-installed CA certs
