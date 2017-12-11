@@ -35,6 +35,9 @@ import android.os.UserHandle;
 import android.security.Credentials;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
+import android.security.keymaster.KeymasterArguments;
+import android.security.keymaster.KeymasterCertificateChain;
+import android.security.keymaster.KeymasterDefs;
 import android.security.KeyStore;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
@@ -129,6 +132,11 @@ public class KeyChainService extends IntentService {
                 return false;
             }
 
+            if (spec.getAttestationChallenge() != null) {
+                Log.e(TAG, "Key generation request should not include an Attestation challenge.");
+                return false;
+            }
+
             try {
                 KeyPairGenerator generator = KeyPairGenerator.getInstance(
                         algorithm, "AndroidKeyStore");
@@ -151,6 +159,24 @@ public class KeyChainService extends IntentService {
             }
 
             return false;
+        }
+
+        @Override public boolean attestKey(
+                String alias, byte[] attestationChallenge,
+                KeymasterCertificateChain attestationChain) {
+            checkSystemCaller();
+            validateAlias(alias);
+
+            if (attestationChallenge == null) {
+                Log.e(TAG, String.format("Missing attestation challenge for alias %s", alias));
+                return false;
+            }
+
+            KeymasterArguments attestArgs = new KeymasterArguments();
+            attestArgs.addBytes(KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, attestationChallenge);
+            final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
+            final int errorCode = mKeyStore.attestKey(keystoreAlias, attestArgs, attestationChain);
+            return errorCode == KeyStore.NO_ERROR;
         }
 
         private void validateAlias(String alias) {
