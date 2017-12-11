@@ -36,10 +36,18 @@ import android.security.Credentials;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.ParcelableKeyGenParameterSpec;
+import android.text.TextUtils;
 import android.util.Log;
 import com.android.keychain.internal.GrantsDatabase;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateFactory;
@@ -107,6 +115,42 @@ public class KeyChainService extends IntentService {
             validateAlias(alias);
             checkSystemCaller();
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
+        }
+
+        @Override public boolean generateKeyPair(
+                String algorithm, ParcelableKeyGenParameterSpec parcelableSpec) {
+            checkSystemCaller();
+            final KeyGenParameterSpec spec = parcelableSpec.getSpec();
+            final String alias = spec.getKeystoreAlias();
+            // Validate the alias here to avoid relying on KeyGenParameterSpec c'tor preventing
+            // the creation of a KeyGenParameterSpec instance with a non-empty alias.
+            if (TextUtils.isEmpty(alias) || spec.getUid() != KeyStore.UID_SELF) {
+                Log.e(TAG, "Cannot generate key pair with empty alias or specified uid.");
+                return false;
+            }
+
+            try {
+                KeyPairGenerator generator = KeyPairGenerator.getInstance(
+                        algorithm, "AndroidKeyStore");
+                // Do not prepend USER_PRIVATE_KEY to the alias because
+                // AndroidKeyStoreKeyPairGeneratorSpi will helpfully prepend that in
+                // generateKeyPair.
+                generator.initialize(spec);
+                KeyPair kp = generator.generateKeyPair();
+                if (kp == null) {
+                    Log.e(TAG, "Key generation failed.");
+                    return false;
+                }
+                return true;
+            } catch (NoSuchAlgorithmException e) {
+                Log.e(TAG, "Invalid algorithm requested", e);
+            } catch (InvalidAlgorithmParameterException e) {
+                Log.e(TAG, "Invalid algorithm params", e);
+            } catch (NoSuchProviderException e) {
+                Log.e(TAG, "Could not find Keystore.", e);
+            }
+
+            return false;
         }
 
         private void validateAlias(String alias) {
