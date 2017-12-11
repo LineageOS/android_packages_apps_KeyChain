@@ -179,6 +179,41 @@ public class KeyChainService extends IntentService {
             return errorCode == KeyStore.NO_ERROR;
         }
 
+        @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
+                byte[] userCertificateChain) {
+            checkSystemCaller();
+            if (!mKeyStore.isUnlocked()) {
+                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
+                        + " be installed until device is unlocked");
+                return false;
+            }
+
+            if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
+                        KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
+                Log.e(TAG, "Failed to import user certificate " + userCertificate);
+                return false;
+            }
+
+            if (userCertificateChain != null && userCertificateChain.length > 0) {
+                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain,
+                            KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
+                    Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
+                    if (!mKeyStore.delete(Credentials.USER_CERTIFICATE + alias)) {
+                        Log.e(TAG, "Failed to clean up key chain after certificate chain"
+                                + " importing failed");
+                    }
+                    return false;
+                }
+            } else {
+                if (!mKeyStore.delete(Credentials.CA_CERTIFICATE + alias)) {
+                    Log.e(TAG, "Failed to remove CA certificate chain for alias " + alias);
+                }
+            }
+            broadcastKeychainChange();
+            broadcastLegacyStorageChange();
+            return true;
+        }
+
         private void validateAlias(String alias) {
             if (alias == null) {
                 throw new NullPointerException("alias == null");
