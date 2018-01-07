@@ -39,6 +39,8 @@ import android.security.keymaster.KeymasterArguments;
 import android.security.keymaster.KeymasterCertificateChain;
 import android.security.keymaster.KeymasterDefs;
 import android.security.KeyStore;
+import android.security.keystore.AttestationUtils;
+import android.security.keystore.DeviceIdAttestationException;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.text.TextUtils;
@@ -89,6 +91,7 @@ public class KeyChainService extends IntentService {
         private final KeyStore mKeyStore = KeyStore.getInstance();
         private final TrustedCertificateStore mTrustedCertificateStore
                 = new TrustedCertificateStore();
+        private final Context mContext = KeyChainService.this;
 
         @Override
         public String requestPrivateKey(String alias) {
@@ -163,6 +166,7 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean attestKey(
                 String alias, byte[] attestationChallenge,
+                int[] idAttestationFlags,
                 KeymasterCertificateChain attestationChain) {
             checkSystemCaller();
             validateAlias(alias);
@@ -172,8 +176,14 @@ public class KeyChainService extends IntentService {
                 return false;
             }
 
-            KeymasterArguments attestArgs = new KeymasterArguments();
-            attestArgs.addBytes(KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, attestationChallenge);
+            final KeymasterArguments attestArgs;
+            try {
+                attestArgs = AttestationUtils.prepareAttestationArguments(
+                        mContext, idAttestationFlags, attestationChallenge);
+            } catch (DeviceIdAttestationException e) {
+                Log.e(TAG, "Failed collecting attestation data", e);
+                return false;
+            }
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int errorCode = mKeyStore.attestKey(keystoreAlias, attestArgs, attestationChain);
             return errorCode == KeyStore.NO_ERROR;
