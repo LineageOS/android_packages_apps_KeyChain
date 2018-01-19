@@ -16,36 +16,37 @@
 
 package com.android.keychain;
 
+import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
+import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
+
 import android.app.BroadcastOptions;
 import android.app.IntentService;
-import android.content.ContentValues;
+import android.app.admin.SecurityLog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.StringParceledListSlice;
-import android.database.Cursor;
-import android.database.DatabaseUtils;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
-import android.os.Process;
 import android.os.UserHandle;
 import android.security.Credentials;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
+import android.security.KeyStore;
 import android.security.keymaster.KeymasterArguments;
 import android.security.keymaster.KeymasterCertificateChain;
-import android.security.keymaster.KeymasterDefs;
-import android.security.KeyStore;
 import android.security.keystore.AttestationUtils;
 import android.security.keystore.DeviceIdAttestationException;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.keychain.internal.GrantsDatabase;
+import com.android.org.conscrypt.TrustedCertificateStore;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
@@ -53,26 +54,28 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.security.cert.CertificateException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Set;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
-import com.android.org.conscrypt.TrustedCertificateStore;
+import javax.security.auth.x500.X500Principal;
 
 public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
 
     /** created in onCreate(), closed in onDestroy() */
-    public GrantsDatabase mGrantsDb;
+    private GrantsDatabase mGrantsDb;
+    private Injector mInjector;
 
     public KeyChainService() {
         super(KeyChainService.class.getSimpleName());
+        mInjector = new Injector();
     }
 
     @Override public void onCreate() {
@@ -98,7 +101,7 @@ public class KeyChainService extends IntentService {
             checkArgs(alias);
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
-            final int uid = Binder.getCallingUid();
+            final int uid = mInjector.getCallingUid();
             return mKeyStore.grant(keystoreAlias, uid);
         }
 
@@ -241,7 +244,7 @@ public class KeyChainService extends IntentService {
             validateAlias(alias);
             validateKeyStoreState();
 
-            final int callingUid = getCallingUid();
+            final int callingUid = mInjector.getCallingUid();
             if (!mGrantsDb.hasGrant(callingUid, alias)) {
                 throw new IllegalStateException("uid " + callingUid
                         + " doesn't have permission to access the requested alias");
@@ -251,16 +254,27 @@ public class KeyChainService extends IntentService {
         @Override public String installCaCertificate(byte[] caCertificate) {
             checkCertInstallerOrSystemCaller();
             final String alias;
+            String subjectForAudit = null;
             try {
                 final X509Certificate cert = parseCertificate(caCertificate);
+                if (mInjector.isSecurityLoggingEnabled()) {
+                    subjectForAudit =
+                            cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                }
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(cert);
                     alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
-            } catch (IOException e) {
+            } catch (IOException | CertificateException e) {
+                if (subjectForAudit != null) {
+                    mInjector.writeSecurityEvent(
+                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit);
+                }
                 throw new IllegalStateException(e);
-            } catch (CertificateException e) {
-                throw new IllegalStateException(e);
+            }
+            if (subjectForAudit != null) {
+                mInjector.writeSecurityEvent(
+                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit);
             }
             broadcastLegacyStorageChange();
             broadcastTrustStoreChange();
@@ -366,14 +380,28 @@ public class KeyChainService extends IntentService {
         }
 
         private boolean deleteCertificateEntry(String alias) {
+            String subjectForAudit = null;
+            if (mInjector.isSecurityLoggingEnabled()) {
+                final Certificate cert = mTrustedCertificateStore.getCertificate(alias);
+                if (cert instanceof X509Certificate) {
+                    subjectForAudit = ((X509Certificate) cert)
+                            .getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                }
+            }
+
             try {
                 mTrustedCertificateStore.deleteCertificateEntry(alias);
+                if (subjectForAudit != null) {
+                    mInjector.writeSecurityEvent(
+                            TAG_CERT_AUTHORITY_REMOVED, 1 /*result*/, subjectForAudit);
+                }
                 return true;
-            } catch (IOException e) {
+            } catch (IOException | CertificateException e) {
                 Log.w(TAG, "Problem removing CA certificate " + alias, e);
-                return false;
-            } catch (CertificateException e) {
-                Log.w(TAG, "Problem removing CA certificate " + alias, e);
+                if (subjectForAudit != null) {
+                    mInjector.writeSecurityEvent(
+                            TAG_CERT_AUTHORITY_REMOVED, 0 /*result*/, subjectForAudit);
+                }
                 return false;
             }
         }
@@ -395,7 +423,7 @@ public class KeyChainService extends IntentService {
          * Returns null if actually caller is expected, otherwise return bad package to report
          */
         private String checkCaller(String expectedPackage) {
-            String actualPackage = getPackageManager().getNameForUid(getCallingUid());
+            String actualPackage = getPackageManager().getNameForUid(mInjector.getCallingUid());
             return (!expectedPackage.equals(actualPackage)) ? actualPackage : null;
         }
 
@@ -521,6 +549,29 @@ public class KeyChainService extends IntentService {
             intent.putExtra(KeyChain.EXTRA_KEY_ACCESSIBLE, access);
             intent.setPackage(pckg);
             sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
+        }
+    }
+
+    @VisibleForTesting
+    void setInjector(Injector injector) {
+        mInjector = injector;
+    }
+
+    /**
+     * Injector for mocking out dependencies in tests.
+     */
+    @VisibleForTesting
+    static class Injector {
+        public boolean isSecurityLoggingEnabled() {
+            return SecurityLog.isLoggingEnabled();
+        }
+
+        public void writeSecurityEvent(int tag, Object... payload) {
+            SecurityLog.writeEvent(tag, payload);
+        }
+
+        public int getCallingUid() {
+            return Binder.getCallingUid();
         }
     }
 }
