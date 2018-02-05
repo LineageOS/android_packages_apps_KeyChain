@@ -26,9 +26,11 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.admin.SecurityLog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.security.IKeyChainService;
 
 import com.android.org.conscrypt.TrustedCertificateStore;
@@ -40,8 +42,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowPackageManager;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -53,7 +57,10 @@ import javax.security.auth.x500.X500Principal;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION,
-        shadows = {ShadowTrustedCertificateStore.class})
+        shadows = {
+                ShadowTrustedCertificateStore.class,
+                ShadowPackageManager.class,
+        })
 public final class KeyChainServiceRoboTest {
     private IKeyChainService.Stub mKeyChain;
 
@@ -91,6 +98,7 @@ public final class KeyChainServiceRoboTest {
 
     private X509Certificate mCert;
     private String mSubject;
+    private ShadowPackageManager mShadowPackageManager;
 
     @Before
     public void setUp() throws Exception {
@@ -99,6 +107,9 @@ public final class KeyChainServiceRoboTest {
 
         mCert = parseCertificate(TEST_CA);
         mSubject = mCert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+
+        final PackageManager packageManager = RuntimeEnvironment.application.getPackageManager();
+        mShadowPackageManager = shadowOf(packageManager);
 
         final ServiceController<KeyChainService> serviceController =
                 Robolectric.buildService(KeyChainService.class).create().bind();
@@ -188,9 +199,33 @@ public final class KeyChainServiceRoboTest {
         return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(cert.getBytes()));
     }
 
+    @Test
+    public void testBadPackagesNotAllowedToInstallCaCerts() throws Exception {
+        setUpCaller(1000666, null);
+        try {
+            mKeyChain.installCaCertificate(TEST_CA.getBytes());
+            fail("didn't throw the exception");
+        } catch (SecurityException expected) {}
+    }
+
+    @Test
+    public void testNonSystemPackagesNotAllowedToInstallCaCerts()  throws Exception {
+        setUpCaller(1000666, "xxx.nasty.flashlight");
+        try {
+            mKeyChain.installCaCertificate(TEST_CA.getBytes());
+            fail("didn't throw the exception");
+        } catch (SecurityException expected) {}
+    }
+
     private void setUpLoggingAndAccess(boolean loggingEnabled) {
         doReturn(loggingEnabled).when(mockInjector).isSecurityLoggingEnabled();
-        // Pretend the caller is system.
-        doReturn(1000).when(mockInjector).getCallingUid();
+
+        // Pretend that the caller is system.
+        setUpCaller(1000, "android.uid.system:1000");
+    }
+
+    private void setUpCaller(int uid, String packageName) {
+        doReturn(uid).when(mockInjector).getCallingUid();
+        mShadowPackageManager.setNameForUid(uid, packageName);
     }
 }

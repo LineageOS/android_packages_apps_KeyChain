@@ -68,6 +68,8 @@ import javax.security.auth.x500.X500Principal;
 public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
+    private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
+    private static final String SYSTEM_PACKAGE = "android.uid.system:1000";
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -407,24 +409,21 @@ public class KeyChainService extends IntentService {
         }
 
         private void checkCertInstallerOrSystemCaller() {
-            String actual = checkCaller("com.android.certinstaller");
-            if (actual == null) {
-                return;
+            final String caller = callingPackage();
+            if (!SYSTEM_PACKAGE.equals(caller) && !CERT_INSTALLER_PACKAGE.equals(caller)) {
+                throw new SecurityException("Not system or cert installer package: " + caller);
             }
-            checkSystemCaller();
         }
+
         private void checkSystemCaller() {
-            String actual = checkCaller("android.uid.system:1000");
-            if (actual != null) {
-                throw new IllegalStateException(actual);
+            final String caller = callingPackage();
+            if (!SYSTEM_PACKAGE.equals(caller)) {
+                throw new SecurityException("Not system package: " + caller);
             }
         }
-        /**
-         * Returns null if actually caller is expected, otherwise return bad package to report
-         */
-        private String checkCaller(String expectedPackage) {
-            String actualPackage = getPackageManager().getNameForUid(mInjector.getCallingUid());
-            return (!expectedPackage.equals(actualPackage)) ? actualPackage : null;
+
+        private String callingPackage() {
+            return getPackageManager().getNameForUid(mInjector.getCallingUid());
         }
 
         @Override public boolean hasGrant(int uid, String alias) {
