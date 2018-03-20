@@ -29,7 +29,7 @@ public class GrantsDatabase {
     private static final String TAG = "KeyChain";
 
     private static final String DATABASE_NAME = "grants.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String TABLE_GRANTS = "grants";
     private static final String GRANTS_ALIAS = "alias";
     private static final String GRANTS_GRANTEE_UID = "uid";
@@ -62,6 +62,20 @@ public class GrantsDatabase {
             super(context, DATABASE_NAME, null /* CursorFactory */, DATABASE_VERSION);
         }
 
+        void createSelectableTable(final SQLiteDatabase db) {
+            db.execSQL(
+                    "CREATE TABLE "
+                            + TABLE_SELECTABLE
+                            + " (  "
+                            + GRANTS_ALIAS
+                            + " STRING NOT NULL,  "
+                            + SELECTABLE_IS_SELECTABLE
+                            + " STRING NOT NULL,  "
+                            + "UNIQUE ("
+                            + GRANTS_ALIAS
+                            + "))");
+        }
+
         @Override
         public void onCreate(final SQLiteDatabase db) {
             db.execSQL(
@@ -78,26 +92,39 @@ public class GrantsDatabase {
                             + GRANTS_GRANTEE_UID
                             + "))");
 
-            db.execSQL(
-                    "CREATE TABLE "
-                            + TABLE_SELECTABLE
-                            + " (  "
-                            + GRANTS_ALIAS
-                            + " STRING NOT NULL,  "
-                            + SELECTABLE_IS_SELECTABLE
-                            + " STRING NOT NULL,  "
-                            + "UNIQUE ("
-                            + GRANTS_ALIAS
-                            + "))");
+            createSelectableTable(db);
         }
 
         @Override
         public void onUpgrade(final SQLiteDatabase db, int oldVersion, final int newVersion) {
-            Log.e(TAG, "upgrade from version " + oldVersion + " to version " + newVersion);
+            Log.w(TAG, "upgrade from version " + oldVersion + " to version " + newVersion);
 
             if (oldVersion == 1) {
-                // the first upgrade step goes here
+                // Version 1 of the database does not have the 'userselectable' table, meaning
+                // upgraded keys could not be selected by users.
+                // The upgrade from version 1 to 2 consists of creating the 'userselectable'
+                // table and adding all existing keys as user-selectable ones into that table.
                 oldVersion++;
+                createSelectableTable(db);
+
+                try (Cursor cursor =
+                        db.query(
+                                TABLE_GRANTS,
+                                new String[] {GRANTS_ALIAS},
+                                null,
+                                null,
+                                GRANTS_ALIAS,
+                                null,
+                                null)) {
+
+                    while ((cursor != null) && (cursor.moveToNext())) {
+                        final String alias = cursor.getString(0);
+                        final ContentValues values = new ContentValues();
+                        values.put(GRANTS_ALIAS, alias);
+                        values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(true));
+                        db.replace(TABLE_SELECTABLE, null, values);
+                    }
+                }
             }
         }
     }
