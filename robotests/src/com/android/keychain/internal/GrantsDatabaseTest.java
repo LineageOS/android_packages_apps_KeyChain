@@ -47,6 +47,8 @@ public final class GrantsDatabaseTest {
     static final String TABLE_GRANTS = "grants";
     static final String GRANTS_ALIAS = "alias";
     static final String GRANTS_GRANTEE_UID = "uid";
+    static final String TABLE_SELECTABLE = "userselectable";
+    static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
 
     private GrantsDatabase mGrantsDB;
 
@@ -157,9 +159,27 @@ public final class GrantsDatabaseTest {
         Assert.assertTrue(mGrantsDB.isUserSelectable(DUMMY_ALIAS));
     }
 
-    private class V1DatabaseHelper extends SQLiteOpenHelper {
-        public V1DatabaseHelper(Context context) {
-            super(context, DATABASE_NAME, null /* CursorFactory */, 1);
+    private abstract class BaseGrantsDatabaseHelper extends SQLiteOpenHelper {
+        private final boolean mCreateUserSelectableTable;
+
+        public BaseGrantsDatabaseHelper(
+                Context context, int dbVersion, boolean createUserSelectableTable) {
+            super(context, DATABASE_NAME, null /* CursorFactory */, dbVersion);
+            mCreateUserSelectableTable = createUserSelectableTable;
+        }
+
+        void createUserSelectableTable(final SQLiteDatabase db) {
+            db.execSQL(
+                    "CREATE TABLE "
+                            + TABLE_SELECTABLE
+                            + " (  "
+                            + GRANTS_ALIAS
+                            + " STRING NOT NULL,  "
+                            + SELECTABLE_IS_SELECTABLE
+                            + " STRING NOT NULL,  "
+                            + "UNIQUE ("
+                            + GRANTS_ALIAS
+                            + "))");
         }
 
         @Override
@@ -177,11 +197,48 @@ public final class GrantsDatabaseTest {
                             + ","
                             + GRANTS_GRANTEE_UID
                             + "))");
+
+            if (mCreateUserSelectableTable) {
+                createUserSelectableTable(db);
+            }
         }
 
         @Override
         public void onUpgrade(final SQLiteDatabase db, int oldVersion, final int newVersion) {
             throw new IllegalStateException("Existing DB must be dropped first.");
+        }
+
+        public void insertIntoGrantsTable(final SQLiteDatabase db, String alias, int uid) {
+            final ContentValues values = new ContentValues();
+            values.put(GRANTS_ALIAS, alias);
+            values.put(GRANTS_GRANTEE_UID, uid);
+            db.insert(TABLE_GRANTS, GRANTS_ALIAS, values);
+        }
+
+        public void insertIntoSelectableTable(
+                final SQLiteDatabase db, String alias, boolean isSelectable) {
+            final ContentValues values = new ContentValues();
+            values.put(GRANTS_ALIAS, alias);
+            values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(isSelectable));
+            db.insert(TABLE_SELECTABLE, null, values);
+        }
+    }
+
+    private class V1DatabaseHelper extends BaseGrantsDatabaseHelper {
+        public V1DatabaseHelper(Context context) {
+            super(context, 1, false);
+        }
+    }
+
+    private class V2DatabaseHelper extends BaseGrantsDatabaseHelper {
+        public V2DatabaseHelper(Context context) {
+            super(context, 2, true);
+        }
+    }
+
+    private class IncorrectlyVersionedV2DatabaseHelper extends BaseGrantsDatabaseHelper {
+        public IncorrectlyVersionedV2DatabaseHelper(Context context) {
+            super(context, 1, true);
         }
     }
 
@@ -197,10 +254,7 @@ public final class GrantsDatabaseTest {
         final SQLiteDatabase db = v1DBHelper.getWritableDatabase();
         String[] aliases = {"alias-1", "alias-2", "alias-3"};
         for (String alias : aliases) {
-            final ContentValues values = new ContentValues();
-            values.put(GRANTS_ALIAS, alias);
-            values.put(GRANTS_GRANTEE_UID, 123456);
-            db.insert(TABLE_GRANTS, GRANTS_ALIAS, values);
+            v1DBHelper.insertIntoGrantsTable(db, alias, 123456);
         }
 
         // Test that the aliases were made user-selectable during the upgrade.
@@ -208,5 +262,68 @@ public final class GrantsDatabaseTest {
         for (String alias : aliases) {
             Assert.assertTrue(mGrantsDB.isUserSelectable(alias));
         }
+    }
+
+    @Test
+    public void testSelectabilityInV2DatabaseNotChanged() {
+        // Close old DB
+        mGrantsDB.destroy();
+        Context context = RuntimeEnvironment.application;
+        context.deleteDatabase(DATABASE_NAME);
+        // Create a new, V2 database.
+        V2DatabaseHelper v2DBHelper = new V2DatabaseHelper(context);
+        // Fill it up with a few records
+        final SQLiteDatabase db = v2DBHelper.getWritableDatabase();
+        String[] aliases = {"alias-1", "alias-2", "alias-3"};
+        for (String alias : aliases) {
+            v2DBHelper.insertIntoGrantsTable(db, alias, 123456);
+            v2DBHelper.insertIntoSelectableTable(db, alias, false);
+        }
+        String selectableAlias = "alias-selectable-1";
+        v2DBHelper.insertIntoGrantsTable(db, selectableAlias, 123457);
+        v2DBHelper.insertIntoSelectableTable(db, selectableAlias, true);
+
+        // Test that the aliases were made user-selectable during the upgrade.
+        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        for (String alias : aliases) {
+            Assert.assertFalse(mGrantsDB.isUserSelectable(alias));
+        }
+        Assert.assertTrue(mGrantsDB.isUserSelectable(selectableAlias));
+    }
+
+    @Test
+    public void testV1AndAHalfDBUpgradedCorrectly() {
+        // Close old DB
+        mGrantsDB.destroy();
+        Context context = RuntimeEnvironment.application;
+        context.deleteDatabase(DATABASE_NAME);
+        // Create a new, V2 database that's incorrectly versioned as v1.
+        IncorrectlyVersionedV2DatabaseHelper dbHelper =
+                new IncorrectlyVersionedV2DatabaseHelper(context);
+        // Fill it up with a few records
+        final SQLiteDatabase db = dbHelper.getWritableDatabase();
+        String[] aliases = {"alias-1", "alias-2", "alias-3"};
+        for (String alias : aliases) {
+            dbHelper.insertIntoGrantsTable(db, alias, 123456);
+            dbHelper.insertIntoSelectableTable(db, alias, false);
+        }
+
+        // Insert one alias explicitly selectable
+        String selectableAlias = "alias-selectable-1";
+        dbHelper.insertIntoGrantsTable(db, selectableAlias, 123456);
+        dbHelper.insertIntoSelectableTable(db, selectableAlias, true);
+
+        // Insert one alias without explicitl user-selectability, which should
+        // default to true when upgrading from V1 to V2.
+        String defaultSelectableAlias = "alias-selectable-2";
+        dbHelper.insertIntoGrantsTable(db, defaultSelectableAlias, 123456);
+
+        // Test that the aliases were made user-selectable during the upgrade.
+        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        for (String alias : aliases) {
+            Assert.assertFalse(mGrantsDB.isUserSelectable(alias));
+        }
+        Assert.assertTrue(mGrantsDB.isUserSelectable(selectableAlias));
+        Assert.assertTrue(mGrantsDB.isUserSelectable(defaultSelectableAlias));
     }
 }
