@@ -63,8 +63,10 @@ public class GrantsDatabase {
         }
 
         void createSelectableTable(final SQLiteDatabase db) {
+            // There are some broken V1 databases that actually have the 'userselectable'
+            // already created. Only create it if it does not exist.
             db.execSQL(
-                    "CREATE TABLE "
+                    "CREATE TABLE IF NOT EXISTS "
                             + TABLE_SELECTABLE
                             + " (  "
                             + GRANTS_ALIAS
@@ -95,6 +97,15 @@ public class GrantsDatabase {
             createSelectableTable(db);
         }
 
+        private boolean hasEntryInUserSelectableTable(final SQLiteDatabase db, final String alias) {
+            final long numMatches =
+                    DatabaseUtils.longForQuery(
+                            db,
+                            COUNT_SELECTABILITY_FOR_ALIAS,
+                            new String[] {alias});
+            return numMatches > 0;
+        }
+
         @Override
         public void onUpgrade(final SQLiteDatabase db, int oldVersion, final int newVersion) {
             Log.w(TAG, "upgrade from version " + oldVersion + " to version " + newVersion);
@@ -119,10 +130,12 @@ public class GrantsDatabase {
 
                     while ((cursor != null) && (cursor.moveToNext())) {
                         final String alias = cursor.getString(0);
-                        final ContentValues values = new ContentValues();
-                        values.put(GRANTS_ALIAS, alias);
-                        values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(true));
-                        db.replace(TABLE_SELECTABLE, null, values);
+                        if (!hasEntryInUserSelectableTable(db, alias)) {
+                            final ContentValues values = new ContentValues();
+                            values.put(GRANTS_ALIAS, alias);
+                            values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(true));
+                            db.replace(TABLE_SELECTABLE, null, values);
+                        }
                     }
                 }
             }
