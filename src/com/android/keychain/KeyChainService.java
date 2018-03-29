@@ -128,7 +128,7 @@ public class KeyChainService extends IntentService {
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
         }
 
-        @Override public boolean generateKeyPair(
+        @Override public int generateKeyPair(
                 String algorithm, ParcelableKeyGenParameterSpec parcelableSpec) {
             checkSystemCaller();
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
@@ -137,12 +137,12 @@ public class KeyChainService extends IntentService {
             // the creation of a KeyGenParameterSpec instance with a non-empty alias.
             if (TextUtils.isEmpty(alias) || spec.getUid() != KeyStore.UID_SELF) {
                 Log.e(TAG, "Cannot generate key pair with empty alias or specified uid.");
-                return false;
+                return KeyChain.KEY_GEN_MISSING_ALIAS;
             }
 
             if (spec.getAttestationChallenge() != null) {
                 Log.e(TAG, "Key generation request should not include an Attestation challenge.");
-                return false;
+                return KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE;
             }
 
             try {
@@ -155,21 +155,22 @@ public class KeyChainService extends IntentService {
                 KeyPair kp = generator.generateKeyPair();
                 if (kp == null) {
                     Log.e(TAG, "Key generation failed.");
-                    return false;
+                    return KeyChain.KEY_GEN_FAILURE;
                 }
-                return true;
+                return KeyChain.KEY_GEN_SUCCESS;
             } catch (NoSuchAlgorithmException e) {
                 Log.e(TAG, "Invalid algorithm requested", e);
+                return KeyChain.KEY_GEN_NO_SUCH_ALGORITHM;
             } catch (InvalidAlgorithmParameterException e) {
                 Log.e(TAG, "Invalid algorithm params", e);
+                return KeyChain.KEY_GEN_INVALID_ALGORITHM_PARAMETERS;
             } catch (NoSuchProviderException e) {
                 Log.e(TAG, "Could not find Keystore.", e);
+                return KeyChain.KEY_GEN_NO_KEYSTORE_PROVIDER;
             }
-
-            return false;
         }
 
-        @Override public boolean attestKey(
+        @Override public int attestKey(
                 String alias, byte[] attestationChallenge,
                 int[] idAttestationFlags,
                 KeymasterCertificateChain attestationChain) {
@@ -178,7 +179,7 @@ public class KeyChainService extends IntentService {
 
             if (attestationChallenge == null) {
                 Log.e(TAG, String.format("Missing attestation challenge for alias %s", alias));
-                return false;
+                return KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE;
             }
 
             final KeymasterArguments attestArgs;
@@ -187,11 +188,21 @@ public class KeyChainService extends IntentService {
                         mContext, idAttestationFlags, attestationChallenge);
             } catch (DeviceIdAttestationException e) {
                 Log.e(TAG, "Failed collecting attestation data", e);
-                return false;
+                return KeyChain.KEY_ATTESTATION_CANNOT_COLLECT_DATA;
             }
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int errorCode = mKeyStore.attestKey(keystoreAlias, attestArgs, attestationChain);
-            return errorCode == KeyStore.NO_ERROR;
+            if (errorCode != KeyStore.NO_ERROR) {
+                Log.e(TAG, String.format("Failure attesting for key %s: %d", alias, errorCode));
+                if (errorCode == KeyStore.CANNOT_ATTEST_IDS) {
+                    return KeyChain.KEY_ATTESTATION_CANNOT_ATTEST_IDS;
+                } else {
+                    // General failure, cannot discern which.
+                    return KeyChain.KEY_ATTESTATION_FAILURE;
+                }
+            }
+
+            return KeyChain.KEY_ATTESTATION_SUCCESS;
         }
 
         @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
