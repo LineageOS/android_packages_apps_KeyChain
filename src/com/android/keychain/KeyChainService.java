@@ -40,6 +40,7 @@ import android.security.keystore.AttestationUtils;
 import android.security.keystore.DeviceIdAttestationException;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
+import android.security.keystore.StrongBoxUnavailableException;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -167,6 +168,9 @@ public class KeyChainService extends IntentService {
             } catch (NoSuchProviderException e) {
                 Log.e(TAG, "Could not find Keystore.", e);
                 return KeyChain.KEY_GEN_NO_KEYSTORE_PROVIDER;
+            } catch (StrongBoxUnavailableException e) {
+                Log.e(TAG, "StrongBox unavailable.", e);
+                return KeyChain.KEY_GEN_STRONGBOX_UNAVAILABLE;
             }
         }
 
