@@ -16,6 +16,7 @@
 
 package com.android.keychain;
 
+import android.annotation.NonNull;
 import android.app.Activity;
 import android.app.admin.IDevicePolicyManager;
 import android.app.AlertDialog;
@@ -51,6 +52,7 @@ import com.android.keychain.internal.KeyInfoProvider;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -164,7 +166,18 @@ public class KeyChainActivity extends Activity {
             }
         };
 
-        final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider);
+        String[] keyTypes = getIntent().getStringArrayExtra(KeyChain.EXTRA_KEY_TYPES);
+        if (keyTypes == null) {
+            keyTypes = new String[]{};
+        }
+        ArrayList<byte[]> issuers = (ArrayList<byte[]>) getIntent().getSerializableExtra(
+                KeyChain.EXTRA_ISSUERS);
+        if (issuers == null) {
+            issuers = new ArrayList<byte[]>();
+        }
+
+        final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider,
+                new CertificateParametersFilter(mKeyStore, keyTypes, issuers));
         loader.execute();
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
@@ -181,6 +194,12 @@ public class KeyChainActivity extends Activity {
                     certAdapter = loader.get();
                 } catch (InterruptedException | ExecutionException e) {
                     Log.e(TAG, "Loading certificate aliases interrupted", e);
+                    finish(null);
+                    return;
+                }
+                // Do not display the dialog if the adapter has nothing to
+                // show the user.
+                if (!certAdapter.shouldDisplayDialog()) {
                     finish(null);
                     return;
                 }
@@ -213,15 +232,74 @@ public class KeyChainActivity extends Activity {
     }
 
     @VisibleForTesting
+    static class CertificateParametersFilter {
+        private final KeyStore mKeyStore;
+        private final List<String> mKeyTypes;
+        private final List<X500Principal> mIssuers;
+
+        public CertificateParametersFilter(KeyStore keyStore,
+                @NonNull String[] keyTypes, @NonNull ArrayList<byte[]> issuers) {
+            mKeyStore = keyStore;
+            mKeyTypes = Arrays.asList(keyTypes);
+            mIssuers = new ArrayList<X500Principal>();
+            for (byte[] issuer : issuers) {
+                try {
+                    X500Principal issuerPrincipal = new X500Principal(issuer);
+                    Log.i(TAG, "Added issuer: " + issuerPrincipal.getName());
+                    mIssuers.add(new X500Principal(issuer));
+                } catch (IllegalArgumentException e) {
+                    Log.w(TAG, "Skipping invalid issuer", e);
+                }
+            }
+        }
+
+        public boolean shouldPresentCertificate(String alias) {
+            X509Certificate cert = loadCertificate(mKeyStore, alias);
+            // If there's no certificate associated with the alias, skip.
+            if (cert == null) {
+                return false;
+            }
+            Log.i(TAG, String.format("Inspecting certificate %s aliased with %s",
+                        cert.getSubjectDN().getName(), alias));
+
+            // If the caller has provided a list of key types to restrict the certificates
+            // offered for selection, skip this alias if the key algorithm is not in that
+            // list.
+            String keyAlgorithm = cert.getPublicKey().getAlgorithm();
+            Log.i(TAG, String.format("Certificate key algorithm: %s", keyAlgorithm));
+            if (!mKeyTypes.isEmpty() && !mKeyTypes.contains(keyAlgorithm)) {
+                return false;
+            }
+
+            // If the caller has provided a list of issuers to restrict the certificates
+            // offered for selection, skip this alias if the issuer is not in that list.
+            X500Principal issuer = cert.getIssuerX500Principal();
+            Log.i(TAG, String.format("Certificate issuer: %s", issuer.getName()));
+            if (!mIssuers.isEmpty() && !mIssuers.contains(issuer)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        public boolean areIssuersOrKeyTypesSpecified() {
+            return !(mIssuers.isEmpty() && mKeyTypes.isEmpty());
+        }
+    }
+
+    @VisibleForTesting
     static class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
         private final KeyStore mKeyStore;
         private final Context mContext;
         private final KeyInfoProvider mInfoProvider;
+        private final CertificateParametersFilter mCertificateFilter;
 
-        public AliasLoader(KeyStore keyStore, Context context, KeyInfoProvider infoProvider) {
+        public AliasLoader(KeyStore keyStore, Context context, KeyInfoProvider infoProvider,
+                CertificateParametersFilter certificateFilter) {
           mKeyStore = keyStore;
           mContext = context;
           mInfoProvider = infoProvider;
+          mCertificateFilter = certificateFilter;
         }
 
         @Override protected CertificateAdapter doInBackground(Void... params) {
@@ -229,9 +307,12 @@ public class KeyChainActivity extends Activity {
             List<String> rawAliasList = ((aliasArray == null)
                                       ? Collections.<String>emptyList()
                                       : Arrays.asList(aliasArray));
+
             return new CertificateAdapter(mKeyStore, mContext,
-                    rawAliasList.stream().filter(mInfoProvider::isUserSelectable).sorted()
-                    .collect(Collectors.toList()));
+                    rawAliasList.stream().filter(mInfoProvider::isUserSelectable)
+                    .filter(mCertificateFilter::shouldPresentCertificate)
+                    .sorted().collect(Collectors.toList()),
+                    mCertificateFilter.areIssuersOrKeyTypesSpecified());
         }
     }
 
@@ -361,12 +442,15 @@ public class KeyChainActivity extends Activity {
         private final List<String> mSubjects = new ArrayList<String>();
         private final KeyStore mKeyStore;
         private final Context mContext;
+        private final boolean mIssuersOrKeyTypesSpecified;
 
-        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases) {
+        private CertificateAdapter(KeyStore keyStore, Context context, List<String> aliases,
+                boolean issuersOrKeyTypesSpecified) {
             mAliases = aliases;
             mSubjects.addAll(Collections.nCopies(aliases.size(), (String) null));
             mKeyStore = keyStore;
             mContext = context;
+            mIssuersOrKeyTypesSpecified = issuersOrKeyTypesSpecified;
         }
         @Override public int getCount() {
             return mAliases.size();
@@ -409,6 +493,23 @@ public class KeyChainActivity extends Activity {
             return view;
         }
 
+        /**
+         * Returns true if the certificate chooser dialog should be displayed.
+         * Currently the dialog will not be displayed if specific issuers or
+         * key types were specified by the caller but there are no aliases
+         * that match them. This is in line with what other operating systems
+         * do.
+         * TODO: Figure out if we can always avoid displaying the chooser when
+         * the alias list is empty.
+         */
+        public boolean shouldDisplayDialog() {
+            if (mIssuersOrKeyTypesSpecified && mAliases.isEmpty()) {
+                return false;
+            }
+
+            return true;
+        }
+
         private class CertLoader extends AsyncTask<Void, Void, String> {
             private final int mAdapterPosition;
             private final TextView mSubjectView;
@@ -418,23 +519,14 @@ public class KeyChainActivity extends Activity {
             }
             @Override protected String doInBackground(Void... params) {
                 String alias = mAliases.get(mAdapterPosition);
-                byte[] bytes = mKeyStore.get(Credentials.USER_CERTIFICATE + alias);
-                if (bytes == null) {
-                    return null;
-                }
-                InputStream in = new ByteArrayInputStream(bytes);
-                X509Certificate cert;
-                try {
-                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                    cert = (X509Certificate)cf.generateCertificate(in);
-                } catch (CertificateException ignored) {
+                X509Certificate cert = loadCertificate(mKeyStore, alias);
+                if (cert == null) {
                     return null;
                 }
                 // bouncycastle can handle the emailAddress OID of 1.2.840.113549.1.9.1
                 X500Principal subjectPrincipal = cert.getSubjectX500Principal();
                 X509Name subjectName = X509Name.getInstance(subjectPrincipal.getEncoded());
-                String subjectString = subjectName.toString(true, X509Name.DefaultSymbols);
-                return subjectString;
+                return subjectName.toString(true, X509Name.DefaultSymbols);
             }
             @Override protected void onPostExecute(String subjectString) {
                 mSubjects.set(mAdapterPosition, subjectString);
@@ -547,6 +639,21 @@ public class KeyChainActivity extends Activity {
         super.onSaveInstanceState(savedState);
         if (mState != State.INITIAL) {
             savedState.putSerializable(KEY_STATE, mState);
+        }
+    }
+
+    private static X509Certificate loadCertificate(KeyStore keyStore, String alias) {
+        byte[] bytes = keyStore.get(Credentials.USER_CERTIFICATE + alias);
+        if (bytes == null) {
+            return null;
+        }
+        InputStream in = new ByteArrayInputStream(bytes);
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            return (X509Certificate)cf.generateCertificate(in);
+        } catch (CertificateException ignored) {
+            Log.w(TAG, "Error generating certificate", ignored);
+            return null;
         }
     }
 }
