@@ -197,9 +197,11 @@ public class KeyChainActivity extends Activity {
                     finish(null);
                     return;
                 }
-                // Do not display the dialog if the adapter has nothing to
-                // show the user.
-                if (!certAdapter.shouldDisplayDialog()) {
+                /*
+                 * If there are no keys for the user to choose from, do not display
+                 * the dialog. This is in line with what other operating systems do.
+                 */
+                if (!certAdapter.hasKeysToChoose()) {
                     finish(null);
                     return;
                 }
@@ -369,23 +371,16 @@ public class KeyChainActivity extends Activity {
         builder.setSingleChoiceItems(adapter, selectedItem, null);
         final AlertDialog dialog = builder.create();
 
-        // Show text above and below the list to explain what the certificate will be used for,
-        // and how to install another one, respectively.
+        // Show text above the list to explain what the certificate will be used for.
         TextView contextView = (TextView) View.inflate(this, R.layout.cert_chooser_header, null);
 
         final ListView lv = dialog.getListView();
         lv.addHeaderView(contextView, null, false);
-        lv.addFooterView(View.inflate(this, R.layout.cert_install, null));
         lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (position == 0) {
                     // Header. Just text; ignore clicks.
                     return;
-                } else if (position == adapter.getCount() + 1) {
-                    // Footer. Remove dialog so that we will recreate with possibly new content
-                    // after install returns.
-                    dialog.dismiss();
-                    Credentials.getInstance().install(KeyChainActivity.this);
                 } else {
                     dialog.getButton(DialogInterface.BUTTON_POSITIVE).setEnabled(true);
                     lv.setItemChecked(position, true);
@@ -494,20 +489,10 @@ public class KeyChainActivity extends Activity {
         }
 
         /**
-         * Returns true if the certificate chooser dialog should be displayed.
-         * Currently the dialog will not be displayed if specific issuers or
-         * key types were specified by the caller but there are no aliases
-         * that match them. This is in line with what other operating systems
-         * do.
-         * TODO: Figure out if we can always avoid displaying the chooser when
-         * the alias list is empty.
+         * Returns true if there are keys to choose from.
          */
-        public boolean shouldDisplayDialog() {
-            if (mIssuersOrKeyTypesSpecified && mAliases.isEmpty()) {
-                return false;
-            }
-
-            return true;
+        public boolean hasKeysToChoose() {
+            return !mAliases.isEmpty();
         }
 
         private class CertLoader extends AsyncTask<Void, Void, String> {
