@@ -18,7 +18,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-LOCAL_JAVA_LIBRARIES := bouncycastle conscrypt
 
 LOCAL_PACKAGE_NAME := KeyChain
 LOCAL_PRIVATE_PLATFORM_APIS := true
