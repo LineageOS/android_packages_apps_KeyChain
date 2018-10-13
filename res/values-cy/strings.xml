@@ -27,7 +27,9 @@
   <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
   <string name="install_new_cert_message">Mae\'n bosib gosod tystysgrifau o ffeil PKCS#12 ar y storfa allanol gydag estyniad %1$s neu %2$s.</string>
   <!-- Label of button to send the user to the CertInstaller to install a certificate -->
+  <string name="install_new_cert_button_label">Gosod tystysgrif</string>
   <!-- Label of button to select the certificate and allow the application certificate request -->
+  <string name="allow_button">Dewis</string>
   <!-- Label of button to send the deny the application certificate request -->
   <string name="deny_button">Gwrthod</string>
 </resources>
