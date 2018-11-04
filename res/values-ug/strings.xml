@@ -15,19 +15,19 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string name="app_name">ئاچقۇچ ھالقىسى</string>
-  <!-- Dialog title when no certificates were found -->
-  <string name="title_no_certs">ھېچقانداق گۇۋاھنامە تېپىلمىدى</string>
-  <!-- Dialog title when at least one certificate was found -->
-  <string name="title_select_cert">گۇۋاھنامە تاللاڭ</string>
-  <!-- Used at top of dialog to identify requesting application -->
-  <string name="requesting_application">بۇ %s ئەپ گۇۋاھنامە ئىشلىتىشنى ئىلتىماس قىلدى. گۇۋاھنامىدىن بىرنى تاللاڭ، مەزكۇر ئەپ ھازىر ۋە كەلگۈسىدە مۇلازىمېتىر بىلەن بۇنى ئىشلىتىپ سالاھىيىتىنى دەلىللەيدۇ.</string>
-  <!-- Used at top of dialog to identify requesting server (may be host:port or just host)-->
-  <string name="requesting_server">بۇ ئەپ مۇلازىمىتېرنى %s سۈپىتىدە دەلىللەشنى ئىلتىماس قىلدى، ئەمما سىز ئىشىنىدىغان ئەپلەرگىلا گۇۋاھنامە ئىشلىتىش ھوقۇقىنى بېرىڭ.</string>
-  <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
-  <string name="install_new_cert_message">سىز سىرتقى ساقلىغۇچتىكى كېڭەيتىلگەن ئىسمى %1$s ياكى  %2$s بولغان PKCS#12 ھۆججەتتىكى گۇۋاھنامىنى ئورنىتالايسىز.</string>
-  <!-- Label of button to send the user to the CertInstaller to install a certificate -->
-  <!-- Label of button to select the certificate and allow the application certificate request -->
-  <!-- Label of button to send the deny the application certificate request -->
-  <string name="deny_button">رەت قىل</string>
+    <string name="app_name">ئاچقۇچ ھالقىسى</string>
+    <!-- Dialog title when no certificates were found -->
+    <string name="title_no_certs">ھېچقانداق گۇۋاھنامە تېپىلمىدى</string>
+    <!-- Dialog title when at least one certificate was found -->
+    <string name="title_select_cert">گۇۋاھنامە تاللاڭ</string>
+    <!-- Used at top of dialog to identify requesting application -->
+    <string name="requesting_application">بۇ %s ئەپ گۇۋاھنامە ئىشلىتىشنى ئىلتىماس قىلدى. گۇۋاھنامىدىن بىرنى تاللاڭ، مەزكۇر ئەپ ھازىر ۋە كەلگۈسىدە مۇلازىمېتىر بىلەن بۇنى ئىشلىتىپ سالاھىيىتىنى دەلىللەيدۇ.</string>
+    <!-- Used at top of dialog to identify requesting server (may be host:port or just host)-->
+    <string name="requesting_server">بۇ ئەپ مۇلازىمىتېرنى %s سۈپىتىدە دەلىللەشنى ئىلتىماس قىلدى، ئەمما سىز ئىشىنىدىغان ئەپلەرگىلا گۇۋاھنامە ئىشلىتىش ھوقۇقىنى بېرىڭ.</string>
+    <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
+    <string name="install_new_cert_message">سىز سىرتقى ساقلىغۇچتىكى كېڭەيتىلگەن ئىسمى %1$s ياكى  %2$s بولغان PKCS#12 ھۆججەتتىكى گۇۋاھنامىنى ئورنىتالايسىز.</string>
+    <!-- Label of button to send the user to the CertInstaller to install a certificate -->
+    <!-- Label of button to select the certificate and allow the application certificate request -->
+    <!-- Label of button to send the deny the application certificate request -->
+    <string name="deny_button">رەت قىل</string>
 </resources>
