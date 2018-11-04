@@ -56,11 +56,7 @@ import java.security.cert.X509Certificate;
 import javax.security.auth.x500.X500Principal;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION,
-        shadows = {
-                ShadowTrustedCertificateStore.class,
-                ShadowPackageManager.class,
-        })
+@Config(shadows = ShadowTrustedCertificateStore.class)
 public final class KeyChainServiceRoboTest {
     private IKeyChainService.Stub mKeyChain;
 
@@ -138,8 +134,8 @@ public final class KeyChainServiceRoboTest {
         try {
             mKeyChain.installCaCertificate(TEST_CA.getBytes());
             fail("didn't propagate the exception");
-        } catch (IllegalStateException ignored) {
-            assertTrue(ignored.getCause() instanceof IOException);
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getCause() instanceof IOException);
         }
 
         verify(mockInjector, times(1)).writeSecurityEvent(
@@ -186,8 +182,8 @@ public final class KeyChainServiceRoboTest {
         try {
             mKeyChain.installCaCertificate(TEST_CA.getBytes());
             fail("didn't propagate the exception");
-        } catch (IllegalStateException ignored) {
-            assertTrue(ignored.getCause() instanceof IOException);
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getCause() instanceof IOException);
         }
         mKeyChain.deleteCaCertificate("alias");
 
