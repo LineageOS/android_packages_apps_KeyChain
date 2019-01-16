@@ -76,27 +76,11 @@ public class KeyChainActivity extends Activity {
 
     private PendingIntent mSender;
 
-    private static enum State { INITIAL, UNLOCK_REQUESTED, UNLOCK_CANCELED };
-
-    private State mState;
-
     // beware that some of these KeyStore operations such as saw and
     // get do file I/O in the remote keystore process and while they
     // do not cause StrictMode violations, they logically should not
     // be done on the UI thread.
     private KeyStore mKeyStore = KeyStore.getInstance();
-
-    @Override public void onCreate(Bundle savedState) {
-        super.onCreate(savedState);
-        if (savedState == null) {
-            mState = State.INITIAL;
-        } else {
-            mState = (State) savedState.getSerializable(KEY_STATE);
-            if (mState == null) {
-                mState = State.INITIAL;
-            }
-        }
-    }
 
     @Override public void onResume() {
         super.onResume();
@@ -117,33 +101,7 @@ public class KeyChainActivity extends Activity {
             return;
         }
 
-        // see if KeyStore has been unlocked, if not start activity to do so
-        switch (mState) {
-            case INITIAL:
-                if (!mKeyStore.isUnlocked()) {
-                    mState = State.UNLOCK_REQUESTED;
-                    this.startActivityForResult(new Intent(Credentials.UNLOCK_ACTION),
-                                                REQUEST_UNLOCK);
-                    // Note that Credentials.unlock will start an
-                    // Activity and we will be paused but then resumed
-                    // when the unlock Activity completes and our
-                    // onActivityResult is called with REQUEST_UNLOCK
-                    return;
-                }
-                chooseCertificate();
-                return;
-            case UNLOCK_REQUESTED:
-                // we've already asked, but have not heard back, probably just rotated.
-                // wait to hear back via onActivityResult
-                return;
-            case UNLOCK_CANCELED:
-                // User wanted to cancel the request, so exit.
-                mState = State.INITIAL;
-                finish(null);
-                return;
-            default:
-                throw new AssertionError();
-        }
+        chooseCertificate();
     }
 
     private void chooseCertificate() {
@@ -526,22 +484,6 @@ public class KeyChainActivity extends Activity {
         RadioButton mRadioButton;
     }
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        switch (requestCode) {
-            case REQUEST_UNLOCK:
-                if (mKeyStore.isUnlocked()) {
-                    mState = State.INITIAL;
-                    chooseCertificate();
-                } else {
-                    // user must have canceled unlock, give up
-                    mState = State.UNLOCK_CANCELED;
-                }
-                return;
-            default:
-                throw new AssertionError();
-        }
-    }
-
     private void finish(String alias) {
         finish(alias, false);
     }
@@ -618,13 +560,6 @@ public class KeyChainActivity extends Activity {
 
     @Override public void onBackPressed() {
         finish(null);
-    }
-
-    @Override protected void onSaveInstanceState(Bundle savedState) {
-        super.onSaveInstanceState(savedState);
-        if (mState != State.INITIAL) {
-            savedState.putSerializable(KEY_STATE, mState);
-        }
     }
 
     private static X509Certificate loadCertificate(KeyStore keyStore, String alias) {
