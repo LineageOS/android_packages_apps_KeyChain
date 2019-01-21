@@ -44,6 +44,8 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.widget.LockPatternUtils;
+import com.android.keychain.internal.ExistingKeysProvider;
 import com.android.keychain.internal.GrantsDatabase;
 import com.android.org.conscrypt.TrustedCertificateStore;
 
@@ -74,6 +76,7 @@ public class KeyChainService extends IntentService {
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
     private Injector mInjector;
+    private final KeyStore mKeyStore = KeyStore.getInstance();
 
     public KeyChainService() {
         super(KeyChainService.class.getSimpleName());
@@ -82,7 +85,7 @@ public class KeyChainService extends IntentService {
 
     @Override public void onCreate() {
         super.onCreate();
-        mGrantsDb = new GrantsDatabase(this);
+        mGrantsDb = new GrantsDatabase(this, new KeyStoreAliasesProvider(mKeyStore));
     }
 
     @Override
@@ -92,8 +95,33 @@ public class KeyChainService extends IntentService {
         mGrantsDb = null;
     }
 
+    private static class KeyStoreAliasesProvider implements ExistingKeysProvider {
+        private final KeyStore mKeyStore;
+
+        KeyStoreAliasesProvider(KeyStore keyStore) {
+            mKeyStore = keyStore;
+        }
+
+        @Override
+        public List<String> getExistingKeyAliases() {
+            List<String> aliases = new ArrayList<String>();
+            String[] keyStoreAliases = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
+            if (keyStoreAliases == null) {
+                return aliases;
+            }
+
+            for (String alias: keyStoreAliases) {
+                Log.w(TAG, "Got Alias from KeyStore: " + alias);
+                String unPrefixedAlias = alias.replaceFirst("^" + Credentials.USER_PRIVATE_KEY, "");
+                if (!unPrefixedAlias.startsWith(LockPatternUtils.SYNTHETIC_PASSWORD_KEY_PREFIX)) {
+                    aliases.add(unPrefixedAlias);
+                }
+            }
+            return aliases;
+        }
+    }
+
     private final IKeyChainService.Stub mIKeyChainService = new IKeyChainService.Stub() {
-        private final KeyStore mKeyStore = KeyStore.getInstance();
         private final TrustedCertificateStore mTrustedCertificateStore
                 = new TrustedCertificateStore();
         private final Context mContext = KeyChainService.this;
