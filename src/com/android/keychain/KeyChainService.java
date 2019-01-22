@@ -265,12 +265,6 @@ public class KeyChainService extends IntentService {
         @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
                 byte[] userCertificateChain) {
             checkSystemCaller();
-            if (!mKeyStore.isUnlocked()) {
-                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
-                        + " be installed until device is unlocked");
-                return false;
-            }
-
             if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
                         KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
@@ -303,16 +297,8 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void validateKeyStoreState() {
-            if (!mKeyStore.isUnlocked()) {
-                throw new IllegalStateException("keystore is "
-                        + mKeyStore.state().toString());
-            }
-        }
-
         private void checkArgs(String alias) {
             validateAlias(alias);
-            validateKeyStoreState();
 
             final int callingUid = mInjector.getCallingUid();
             if (!mGrantsDb.hasGrant(callingUid, alias)) {
@@ -363,21 +349,16 @@ public class KeyChainService extends IntentService {
         @Override public boolean installKeyPair(byte[] privateKey, byte[] userCertificate,
                 byte[] userCertificateChain, String alias) {
             checkCertInstallerOrSystemCaller();
-            if (!mKeyStore.isUnlocked()) {
-                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
-                        + " be installed until device is unlocked");
-                return false;
-            }
             if (!removeKeyPair(alias)) {
                 return false;
             }
             if (!mKeyStore.importKey(Credentials.USER_PRIVATE_KEY + alias, privateKey, -1,
-                    KeyStore.FLAG_ENCRYPTED)) {
+                    KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import private key " + alias);
                 return false;
             }
             if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate, -1,
-                    KeyStore.FLAG_ENCRYPTED)) {
+                    KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
                 if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
                     Log.e(TAG, "Failed to delete private key after certificate importing failed");
@@ -386,7 +367,7 @@ public class KeyChainService extends IntentService {
             }
             if (userCertificateChain != null && userCertificateChain.length > 0) {
                 if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, -1,
-                        KeyStore.FLAG_ENCRYPTED)) {
+                        KeyStore.FLAG_NONE)) {
                     Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
                     if (!removeKeyPair(alias)) {
                         Log.e(TAG, "Failed to clean up key chain after certificate chain"
