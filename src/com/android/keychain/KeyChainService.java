@@ -129,7 +129,9 @@ public class KeyChainService extends IntentService {
 
         @Override
         public String requestPrivateKey(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int uid = mInjector.getCallingUid();
@@ -137,12 +139,16 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public byte[] getCertificate(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
             return mKeyStore.get(Credentials.USER_CERTIFICATE + alias);
         }
 
         @Override public byte[] getCaCertificates(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
             return mKeyStore.get(Credentials.CA_CERTIFICATE + alias);
         }
 
@@ -172,6 +178,13 @@ public class KeyChainService extends IntentService {
             if (spec.getAttestationChallenge() != null) {
                 Log.e(TAG, "Key generation request should not include an Attestation challenge.");
                 return KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE;
+            }
+
+            if (!removeKeyPair(alias)) {
+                Log.e(TAG, "Failed to remove previously-installed alias " + alias);
+                //TODO: Introduce a different error code in R to distinguish the failure to remove
+                // old keys from other failures.
+                return KeyChain.KEY_GEN_FAILURE;
             }
 
             try {
@@ -297,14 +310,18 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void checkArgs(String alias) {
+        private boolean hasGrant(String alias) {
             validateAlias(alias);
 
             final int callingUid = mInjector.getCallingUid();
             if (!mGrantsDb.hasGrant(callingUid, alias)) {
-                throw new IllegalStateException("uid " + callingUid
-                        + " doesn't have permission to access the requested alias");
+                Log.w(TAG, String.format(
+                        "uid %d doesn't have permission to access the requested alias %s",
+                        callingUid, alias));
+                return false;
             }
+
+            return true;
         }
 
         @Override public String installCaCertificate(byte[] caCertificate) {
@@ -386,6 +403,8 @@ public class KeyChainService extends IntentService {
             if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
                 return false;
             }
+            Log.w(TAG, String.format(
+                    "WARNING: Removing alias %s, existing grants will be revoked.", alias));
             mGrantsDb.removeAliasInformation(alias);
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
