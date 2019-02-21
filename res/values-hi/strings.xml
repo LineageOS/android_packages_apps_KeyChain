@@ -24,5 +24,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"आप बाहरी मेमोरी में मौजूद %1$s या %2$s एक्‍सटेंशन वाली PKCS#12 फ़ाइल से प्रमाणपत्र इंस्‍टॉल कर सकते हैं."</string>
     <string name="install_new_cert_button_label" msgid="903474285774077171">"प्रमाणपत्र इंस्‍टॉल करें"</string>
     <string name="allow_button" msgid="3030990695030371561">"चुनें"</string>
-    <string name="deny_button" msgid="3766539809121892584">"नामंज़ूर करें"</string>
+    <string name="deny_button" msgid="3766539809121892584">"अस्वीकार करें"</string>
 </resources>
