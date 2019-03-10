@@ -15,13 +15,5 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <!-- Dialog title when no certificates were found -->
-  <!-- Dialog title when at least one certificate was found -->
-  <!-- Used at top of dialog to identify requesting application -->
-  <!-- Used at top of dialog to identify requesting server (may be host:port or just host)-->
-  <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
-  <!-- Label of button to send the user to the CertInstaller to install a certificate -->
-  <string name="install_new_cert_button_label">Instali</string>
-  <!-- Label of button to send the allow the application certificate request -->
-  <!-- Label of button to send the deny the application certificate request -->
+    <string name="install_new_cert_button_label">Instali</string>
 </resources>
