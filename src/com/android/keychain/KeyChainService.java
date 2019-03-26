@@ -29,6 +29,7 @@ import android.content.pm.StringParceledListSlice;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.UserHandle;
 import android.security.Credentials;
 import android.security.IKeyChainService;
@@ -72,7 +73,6 @@ public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
-    private static final String SYSTEM_PACKAGE = "android.uid.system:1000";
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -478,16 +478,19 @@ public class KeyChainService extends IntentService {
 
         private void checkCertInstallerOrSystemCaller() {
             final String caller = callingPackage();
-            if (!SYSTEM_PACKAGE.equals(caller) && !CERT_INSTALLER_PACKAGE.equals(caller)) {
+            if (!isCallerWithSystemUid() && !CERT_INSTALLER_PACKAGE.equals(caller)) {
                 throw new SecurityException("Not system or cert installer package: " + caller);
             }
         }
 
         private void checkSystemCaller() {
-            final String caller = callingPackage();
-            if (!SYSTEM_PACKAGE.equals(caller)) {
-                throw new SecurityException("Not system package: " + caller);
+            if (!isCallerWithSystemUid()) {
+                throw new SecurityException("Not system package: " + callingPackage());
             }
+        }
+
+        private boolean isCallerWithSystemUid() {
+            return UserHandle.isSameApp(Binder.getCallingUid(), Process.SYSTEM_UID);
         }
 
         private String callingPackage() {
