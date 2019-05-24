@@ -24,14 +24,12 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import com.android.keychain.TestConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +37,6 @@ import java.util.List;
 
 /** Unit tests for {@link com.android.keychain.internal.GrantsDatabase}. */
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class GrantsDatabaseTest {
     private static final String DUMMY_ALIAS = "dummy_alias";
     private static final String DUMMY_ALIAS2 = "another_dummy_alias";
@@ -48,12 +45,12 @@ public final class GrantsDatabaseTest {
     private static final int DUMMY_UID2 = 1001;
     // Constants duplicated from GrantsDatabase to make sure the upgrade tests catch if the
     // name of one of the fields in the DB changes.
-    static final String DATABASE_NAME = "grants.db";
-    static final String TABLE_GRANTS = "grants";
-    static final String GRANTS_ALIAS = "alias";
-    static final String GRANTS_GRANTEE_UID = "uid";
-    static final String TABLE_SELECTABLE = "userselectable";
-    static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
+    private static final String DATABASE_NAME = "grants.db";
+    private static final String TABLE_GRANTS = "grants";
+    private static final String GRANTS_ALIAS = "alias";
+    private static final String GRANTS_GRANTEE_UID = "uid";
+    private static final String TABLE_SELECTABLE = "userselectable";
+    private static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
 
     private GrantsDatabase mGrantsDB;
     private ExistingKeysProvider mKeysProvider;
