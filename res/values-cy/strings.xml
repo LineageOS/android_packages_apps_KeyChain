@@ -15,12 +15,13 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <!-- Dialog title when no certificates were found -->
-  <!-- Dialog title when at least one certificate was found -->
-  <!-- Used at top of dialog to identify requesting application -->
-  <!-- Used at top of dialog to identify requesting server (may be host:port or just host)-->
-  <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
-  <!-- Label of button to send the user to the CertInstaller to install a certificate -->
-  <!-- Label of button to send the allow the application certificate request -->
-  <!-- Label of button to send the deny the application certificate request -->
+    <string name="app_name">Cadwyn Allweddi</string>
+    <string name="title_no_certs">Ni chanfuwyd tystysgrif</string>
+    <string name="title_select_cert">Dewisa dystysgrif</string>
+    <string name="requesting_application">Mae\'r ap %s wedi gwneud cais am dystysgrif. Bydd dewis tystysgrif yn caniatáu i\'r ap ddefnyddio\'r hunaniaeth hon gyda\'r gweinyddion nawr ac yn y dyfodol.</string>
+    <string name="requesting_server">Mae\'r ap wedi adnabod y gweinydd sy\'n gwneud y cais fel %s, ond fe ddylet ond caniatáu mynediad i\'r dystysgrif gan yr ap os wyt ti\'n ymddiried yn yr ap.</string>
+    <string name="install_new_cert_message">Mae\'n bosib gosod tystysgrifau o ffeil PKCS#12 ar y storfa allanol gydag estyniad %1$s neu %2$s.</string>
+    <string name="install_new_cert_button_label">Gosod</string>
+    <string name="allow_button">Caniatáu</string>
+    <string name="deny_button">Gwrthod</string>
 </resources>
