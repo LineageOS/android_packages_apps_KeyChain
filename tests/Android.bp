@@ -20,6 +20,14 @@ android_test {
         "com.android.keychain.tests.support",
         "core-tests-support",
         "mockwebserver",
+        "platform-test-annotations",
         "junit",
+        "androidx.test.ext.junit",
+        "androidx.test.runner",
+        "androidx.test.rules",
+        "truth-prebuilt",
+    ],
+    libs: [
+        "android.test.base",
     ],
 }
