@@ -86,9 +86,6 @@ public class KeyChainServiceTestSupport extends Service {
     };
 
     @Override public IBinder onBind(Intent intent) {
-        if (IKeyChainServiceTestSupport.class.getName().equals(intent.getAction())) {
-            return mIKeyChainServiceTestSupport;
-        }
-        return null;
+        return mIKeyChainServiceTestSupport;
     }
 }

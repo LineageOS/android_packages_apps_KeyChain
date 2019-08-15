@@ -38,11 +38,7 @@
         adb shell am start -n com.android.keychain.tests/com.android.keychain.tests.KeyChainTestActivity
     -->
     <application>
-        <service android:name="com.android.keychain.tests.KeyChainServiceTest">
-            <intent-filter>
-                <action android:name="com.android.keychain.tests.KeyChainServiceTest"/>
-            </intent-filter>
-        </service>
+        <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.keychain.tests.KeyChainTestActivity">
             <intent-filter>
                 <action android:name="com.android.keychain.tests.KeyChainTestActivity"/>
@@ -54,4 +50,9 @@
             </intent-filter>
         </activity>
     </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="com.android.keychain.tests"
+        android:label="KeyChain Service Tests" />
 </manifest>
