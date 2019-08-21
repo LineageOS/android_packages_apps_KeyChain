@@ -36,4 +36,6 @@ interface IKeyChainServiceTestSupport {
     boolean keystoreImportKey(String key, in byte[] value);
     void revokeAppPermission(int uid, String alias);
     void grantAppPermission(int uid, String alias);
+    boolean installKeyPair(in byte[] privateKey, in byte[] userCert, in byte[] certChain, String alias);
+    boolean removeKeyPair(String alias);
 }
