@@ -48,6 +48,7 @@ import org.junit.runner.RunWith;
 public class BasicKeyChainServiceTest {
     private static final String TAG = "BasicKeyChainServiceTest";
     private static final String ALIAS_1 = "client";
+    private static final String ALIAS_IMPORTED = "imported";
 
     private Context mContext;
 
@@ -120,6 +121,40 @@ public class BasicKeyChainServiceTest {
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_1)).isNull();
         mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_1);
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_1)).isNotNull();
+    }
+
+    @Test
+    public void testInstallAndRemoveKeyPair()
+            throws RemoteException, IOException, CertificateException {
+        Log.d(TAG, "Testing importing key.");
+        waitForSupportService();
+        waitForKeyChainService();
+
+        assertThat(mTestSupportService.keystoreReset()).isTrue();
+        // No key installed, all should fail.
+        assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNull();
+        assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNull();
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNull();
+
+        PrivateKeyEntry privateKeyEntry =
+                TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
+        assertThat(mTestSupportService.installKeyPair(privateKeyEntry.getPrivateKey().getEncoded(),
+                    privateKeyEntry.getCertificate().getEncoded(),
+                    Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
+                    ALIAS_IMPORTED)).isTrue();
+
+        // No grant, all should still fail.
+        assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNull();
+        assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNull();
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNull();
+        // Grant access
+        mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_IMPORTED);
+        // Has grant, all should succeed.
+        assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNotNull();
+        assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNotNull();
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNotNull();
+        // Finally, test removal.
+        assertThat(mTestSupportService.removeKeyPair(ALIAS_IMPORTED)).isTrue();
     }
 
     void bindTestSupportService() {
