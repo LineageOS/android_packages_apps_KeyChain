@@ -38,4 +38,5 @@ interface IKeyChainServiceTestSupport {
     void grantAppPermission(int uid, String alias);
     boolean installKeyPair(in byte[] privateKey, in byte[] userCert, in byte[] certChain, String alias);
     boolean removeKeyPair(String alias);
+    void setUserSelectable(String alias, boolean isUserSelectable);
 }

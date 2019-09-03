@@ -77,6 +77,16 @@ public class KeyChainServiceTestSupport extends Service {
             });
         }
 
+        @Override public void setUserSelectable(String alias, boolean isUserSelectable)
+                throws RemoteException {
+            Log.d(TAG, "setUserSelectable");
+            KeyChainAction<Void> action = service -> {
+                service.setUserSelectable(alias, isUserSelectable);
+                return null;
+            };
+            performBlockingKeyChainCall(action);
+        }
+
         /**
          * Binds to the KeyChainService and requests that permission for the sender to
          * access the specified alias is granted/revoked.

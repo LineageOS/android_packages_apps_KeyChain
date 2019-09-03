@@ -99,6 +99,9 @@ public class BasicKeyChainServiceTest {
         assertThat(mIsSupportServiceBound).isTrue();
         bindKeyChainService();
         assertThat(mIsKeyChainServiceBound).isTrue();
+
+        waitForSupportService();
+        waitForKeyChainService();
     }
 
     @After
@@ -113,9 +116,6 @@ public class BasicKeyChainServiceTest {
     public void testCanAccessKeyAfterGettingGrant()
             throws RemoteException, IOException, CertificateException {
         Log.d(TAG, "Testing access to imported key after getting grant.");
-        waitForSupportService();
-        waitForKeyChainService();
-
         assertThat(mTestSupportService.keystoreReset()).isTrue();
         installFirstKey();
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_1)).isNull();
@@ -127,9 +127,6 @@ public class BasicKeyChainServiceTest {
     public void testInstallAndRemoveKeyPair()
             throws RemoteException, IOException, CertificateException {
         Log.d(TAG, "Testing importing key.");
-        waitForSupportService();
-        waitForKeyChainService();
-
         assertThat(mTestSupportService.keystoreReset()).isTrue();
         // No key installed, all should fail.
         assertThat(mKeyChainService.requestPrivateKey(ALIAS_IMPORTED)).isNull();
@@ -154,6 +151,27 @@ public class BasicKeyChainServiceTest {
         assertThat(mKeyChainService.getCertificate(ALIAS_IMPORTED)).isNotNull();
         assertThat(mKeyChainService.getCaCertificates(ALIAS_IMPORTED)).isNotNull();
         // Finally, test removal.
+        assertThat(mTestSupportService.removeKeyPair(ALIAS_IMPORTED)).isTrue();
+    }
+
+    @Test
+    public void testUserSelectability() throws RemoteException, IOException, CertificateException {
+        Log.d(TAG, "Testing user-selectability of a key.");
+        assertThat(mTestSupportService.keystoreReset()).isTrue();
+        PrivateKeyEntry privateKeyEntry =
+                TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
+        assertThat(mTestSupportService.installKeyPair(privateKeyEntry.getPrivateKey().getEncoded(),
+                privateKeyEntry.getCertificate().getEncoded(),
+                Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
+                ALIAS_IMPORTED)).isTrue();
+
+        assertThat(mKeyChainService.isUserSelectable(ALIAS_IMPORTED)).isFalse();
+        mTestSupportService.setUserSelectable(ALIAS_IMPORTED, true);
+        assertThat(mKeyChainService.isUserSelectable(ALIAS_IMPORTED)).isTrue();
+        mTestSupportService.setUserSelectable(ALIAS_IMPORTED, false);
+        assertThat(mKeyChainService.isUserSelectable(ALIAS_IMPORTED)).isFalse();
+
+        // Remove key
         assertThat(mTestSupportService.removeKeyPair(ALIAS_IMPORTED)).isTrue();
     }
 
