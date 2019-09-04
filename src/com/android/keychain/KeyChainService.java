@@ -29,6 +29,7 @@ import android.content.pm.StringParceledListSlice;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.UserHandle;
 import android.security.Credentials;
 import android.security.IKeyChainService;
@@ -40,6 +41,7 @@ import android.security.keystore.AttestationUtils;
 import android.security.keystore.DeviceIdAttestationException;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
+import android.security.keystore.StrongBoxUnavailableException;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -71,7 +73,6 @@ public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
-    private static final String SYSTEM_PACKAGE = "android.uid.system:1000";
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -128,7 +129,9 @@ public class KeyChainService extends IntentService {
 
         @Override
         public String requestPrivateKey(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int uid = mInjector.getCallingUid();
@@ -136,12 +139,16 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public byte[] getCertificate(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
             return mKeyStore.get(Credentials.USER_CERTIFICATE + alias);
         }
 
         @Override public byte[] getCaCertificates(String alias) {
-            checkArgs(alias);
+            if (!hasGrant(alias)) {
+                return null;
+            }
             return mKeyStore.get(Credentials.CA_CERTIFICATE + alias);
         }
 
@@ -173,6 +180,13 @@ public class KeyChainService extends IntentService {
                 return KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE;
             }
 
+            if (!removeKeyPair(alias)) {
+                Log.e(TAG, "Failed to remove previously-installed alias " + alias);
+                //TODO: Introduce a different error code in R to distinguish the failure to remove
+                // old keys from other failures.
+                return KeyChain.KEY_GEN_FAILURE;
+            }
+
             try {
                 KeyPairGenerator generator = KeyPairGenerator.getInstance(
                         algorithm, "AndroidKeyStore");
@@ -195,6 +209,9 @@ public class KeyChainService extends IntentService {
             } catch (NoSuchProviderException e) {
                 Log.e(TAG, "Could not find Keystore.", e);
                 return KeyChain.KEY_GEN_NO_KEYSTORE_PROVIDER;
+            } catch (StrongBoxUnavailableException e) {
+                Log.e(TAG, "StrongBox unavailable.", e);
+                return KeyChain.KEY_GEN_STRONGBOX_UNAVAILABLE;
             }
         }
 
@@ -261,12 +278,6 @@ public class KeyChainService extends IntentService {
         @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
                 byte[] userCertificateChain) {
             checkSystemCaller();
-            if (!mKeyStore.isUnlocked()) {
-                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
-                        + " be installed until device is unlocked");
-                return false;
-            }
-
             if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
                         KeyStore.UID_SELF, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
@@ -299,22 +310,18 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void validateKeyStoreState() {
-            if (!mKeyStore.isUnlocked()) {
-                throw new IllegalStateException("keystore is "
-                        + mKeyStore.state().toString());
-            }
-        }
-
-        private void checkArgs(String alias) {
+        private boolean hasGrant(String alias) {
             validateAlias(alias);
-            validateKeyStoreState();
 
             final int callingUid = mInjector.getCallingUid();
             if (!mGrantsDb.hasGrant(callingUid, alias)) {
-                throw new IllegalStateException("uid " + callingUid
-                        + " doesn't have permission to access the requested alias");
+                Log.w(TAG, String.format(
+                        "uid %d doesn't have permission to access the requested alias %s",
+                        callingUid, alias));
+                return false;
             }
+
+            return true;
         }
 
         @Override public String installCaCertificate(byte[] caCertificate) {
@@ -359,21 +366,16 @@ public class KeyChainService extends IntentService {
         @Override public boolean installKeyPair(byte[] privateKey, byte[] userCertificate,
                 byte[] userCertificateChain, String alias) {
             checkCertInstallerOrSystemCaller();
-            if (!mKeyStore.isUnlocked()) {
-                Log.e(TAG, "Keystore is " + mKeyStore.state().toString() + ". Credentials cannot"
-                        + " be installed until device is unlocked");
-                return false;
-            }
             if (!removeKeyPair(alias)) {
                 return false;
             }
             if (!mKeyStore.importKey(Credentials.USER_PRIVATE_KEY + alias, privateKey, -1,
-                    KeyStore.FLAG_ENCRYPTED)) {
+                    KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import private key " + alias);
                 return false;
             }
             if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate, -1,
-                    KeyStore.FLAG_ENCRYPTED)) {
+                    KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
                 if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
                     Log.e(TAG, "Failed to delete private key after certificate importing failed");
@@ -382,7 +384,7 @@ public class KeyChainService extends IntentService {
             }
             if (userCertificateChain != null && userCertificateChain.length > 0) {
                 if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, -1,
-                        KeyStore.FLAG_ENCRYPTED)) {
+                        KeyStore.FLAG_NONE)) {
                     Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
                     if (!removeKeyPair(alias)) {
                         Log.e(TAG, "Failed to clean up key chain after certificate chain"
@@ -401,6 +403,8 @@ public class KeyChainService extends IntentService {
             if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
                 return false;
             }
+            Log.w(TAG, String.format(
+                    "WARNING: Removing alias %s, existing grants will be revoked.", alias));
             mGrantsDb.removeAliasInformation(alias);
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
@@ -474,16 +478,19 @@ public class KeyChainService extends IntentService {
 
         private void checkCertInstallerOrSystemCaller() {
             final String caller = callingPackage();
-            if (!SYSTEM_PACKAGE.equals(caller) && !CERT_INSTALLER_PACKAGE.equals(caller)) {
+            if (!isCallerWithSystemUid() && !CERT_INSTALLER_PACKAGE.equals(caller)) {
                 throw new SecurityException("Not system or cert installer package: " + caller);
             }
         }
 
         private void checkSystemCaller() {
-            final String caller = callingPackage();
-            if (!SYSTEM_PACKAGE.equals(caller)) {
-                throw new SecurityException("Not system package: " + caller);
+            if (!isCallerWithSystemUid()) {
+                throw new SecurityException("Not system package: " + callingPackage());
             }
+        }
+
+        private boolean isCallerWithSystemUid() {
+            return UserHandle.isSameApp(Binder.getCallingUid(), Process.SYSTEM_UID);
         }
 
         private String callingPackage() {
