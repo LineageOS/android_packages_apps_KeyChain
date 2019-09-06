@@ -23,6 +23,8 @@ import android.os.RemoteException;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
+import android.security.keymaster.KeymasterCertificateChain;
+import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.util.Log;
 
 public class KeyChainServiceTestSupport extends Service {
@@ -85,6 +87,31 @@ public class KeyChainServiceTestSupport extends Service {
                 return null;
             };
             performBlockingKeyChainCall(action);
+        }
+
+        @Override public int generateKeyPair(String algorithm, ParcelableKeyGenParameterSpec spec)
+                throws RemoteException {
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.generateKeyPair(algorithm, spec);
+            });
+        }
+
+        @Override public int attestKey(
+                String alias, byte[] attestationChallenge,
+                int[] idAttestationFlags) throws RemoteException {
+            KeymasterCertificateChain attestationChain = new KeymasterCertificateChain();
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.attestKey(alias, attestationChallenge, idAttestationFlags,
+                        attestationChain);
+            });
+        }
+
+        @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
+                byte[] userCertificateChain) throws RemoteException {
+            return performBlockingKeyChainCall(keyChainService -> {
+                return keyChainService.setKeyPairCertificate(alias, userCertificate,
+                        userCertificateChain);
+            });
         }
 
         /**

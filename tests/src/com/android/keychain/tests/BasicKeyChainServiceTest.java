@@ -15,8 +15,9 @@
  */
 package com.android.keychain.tests;
 
+import static android.os.Process.WIFI_UID;
+
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -29,6 +30,10 @@ import android.os.RemoteException;
 import android.platform.test.annotations.LargeTest;
 import android.security.Credentials;
 import android.security.IKeyChainService;
+import android.security.KeyChain;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.util.Log;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -49,6 +54,9 @@ public class BasicKeyChainServiceTest {
     private static final String TAG = "BasicKeyChainServiceTest";
     private static final String ALIAS_1 = "client";
     private static final String ALIAS_IMPORTED = "imported";
+    private static final String ALIAS_GENERATED = "generated";
+    public static final byte[] DUMMY_CHALLENGE = {'a', 'b', 'c'};
+    private static final String ALIAS_NON_EXISTING = "nonexisting";
 
     private Context mContext;
 
@@ -106,6 +114,14 @@ public class BasicKeyChainServiceTest {
 
     @After
     public void tearDown() {
+        // Clean up keys that might have been left over
+        try {
+            removeKeyPair(ALIAS_IMPORTED);
+            removeKeyPair(ALIAS_GENERATED);
+        } catch (RemoteException e) {
+            // Nothing to do here but warn that clean-up was not successful.
+            Log.w(TAG, "Failed cleaning up installed keys", e);
+        }
         unbindTestSupportService();
         assertThat(mIsSupportServiceBound).isFalse();
         unbindKeyChainService();
@@ -173,6 +189,110 @@ public class BasicKeyChainServiceTest {
 
         // Remove key
         assertThat(mTestSupportService.removeKeyPair(ALIAS_IMPORTED)).isTrue();
+    }
+
+    @Test
+    public void testGenerateKeyPairErrorsOnBadUid() throws RemoteException {
+        KeyGenParameterSpec specBadUid =
+                new KeyGenParameterSpec.Builder(buildRsaKeySpec(ALIAS_GENERATED))
+                .setUid(WIFI_UID)
+                .build();
+        ParcelableKeyGenParameterSpec parcelableSpec =
+                new ParcelableKeyGenParameterSpec(specBadUid);
+        assertThat(mTestSupportService.generateKeyPair("RSA", parcelableSpec)).isEqualTo(
+                KeyChain.KEY_GEN_MISSING_ALIAS);
+    }
+
+    @Test
+    public void testGenerateKeyPairErrorsOnSuperflousAttestationChallenge() throws RemoteException {
+        KeyGenParameterSpec specWithChallenge =
+                new KeyGenParameterSpec.Builder(buildRsaKeySpec(ALIAS_GENERATED))
+                        .setAttestationChallenge(DUMMY_CHALLENGE)
+                        .build();
+        ParcelableKeyGenParameterSpec parcelableSpec =
+                new ParcelableKeyGenParameterSpec(specWithChallenge);
+        assertThat(mTestSupportService.generateKeyPair("RSA", parcelableSpec)).isEqualTo(
+                KeyChain.KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE);
+    }
+
+    @Test
+    public void testGenerateKeyPairErrorsOnInvalidAlgorithm() throws RemoteException {
+        ParcelableKeyGenParameterSpec parcelableSpec = new ParcelableKeyGenParameterSpec(
+                buildRsaKeySpec(ALIAS_GENERATED));
+        assertThat(mTestSupportService.generateKeyPair("BADBAD", parcelableSpec)).isEqualTo(
+                KeyChain.KEY_GEN_NO_SUCH_ALGORITHM);
+    }
+
+    @Test
+    public void testGenerateKeyPairErrorsOnInvalidAlgorithmParameters() throws RemoteException {
+        ParcelableKeyGenParameterSpec parcelableSpec = new ParcelableKeyGenParameterSpec(
+                buildRsaKeySpec(ALIAS_GENERATED));
+        // RSA key parameters do not make sense for Elliptic Curve
+        assertThat(mTestSupportService.generateKeyPair("EC", parcelableSpec)).isEqualTo(
+                KeyChain.KEY_GEN_INVALID_ALGORITHM_PARAMETERS);
+    }
+
+    @Test
+    public void testGenerateKeyPairSucceeds() throws RemoteException {
+        generateRsaKey(ALIAS_GENERATED);
+        // Test that there are no grants by default
+        assertThat(mKeyChainService.requestPrivateKey(ALIAS_GENERATED)).isNull();
+        // And is not user-selectable by default
+        assertThat(mKeyChainService.isUserSelectable(ALIAS_GENERATED)).isFalse();
+        // But after granting access, it can be used.
+        mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_GENERATED);
+        assertThat(mKeyChainService.requestPrivateKey(ALIAS_GENERATED)).isNotNull();
+    }
+
+    @Test
+    public void testAttestKeyFailsOnMissingChallenge() throws RemoteException {
+        generateRsaKey(ALIAS_GENERATED);
+        assertThat(mTestSupportService.attestKey(ALIAS_GENERATED, null, new int[]{}
+                )).isEqualTo(KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE);
+    }
+
+    @Test
+    public void testAttestKeyFailsOnNonExistentKey() throws RemoteException {
+        assertThat(mTestSupportService.attestKey(ALIAS_NON_EXISTING, DUMMY_CHALLENGE, new int[]{}
+                )).isEqualTo(KeyChain.KEY_ATTESTATION_FAILURE);
+    }
+
+    @Test
+    public void testAttestKeySucceedsOnGeneratedKey() throws RemoteException {
+        generateRsaKey(ALIAS_GENERATED);
+        assertThat(mTestSupportService.attestKey(ALIAS_GENERATED, DUMMY_CHALLENGE,
+                new int[]{})).isEqualTo(KeyChain.KEY_ATTESTATION_SUCCESS);
+    }
+
+    @Test
+    public void testSetKeyPairCertificate() throws RemoteException {
+        generateRsaKey(ALIAS_GENERATED);
+        final byte[] userCert = new byte[] {'a', 'b', 'c'};
+        final byte[] certChain = new byte[] {'d', 'e', 'f'};
+
+        assertThat(mTestSupportService.setKeyPairCertificate(ALIAS_GENERATED, userCert,
+                certChain)).isTrue();
+        mTestSupportService.grantAppPermission(Process.myUid(), ALIAS_GENERATED);
+
+        assertThat(mKeyChainService.getCertificate(ALIAS_GENERATED)).isEqualTo(userCert);
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_GENERATED)).isEqualTo(certChain);
+
+        final byte[] newUserCert = new byte[] {'x', 'y', 'z'};
+        assertThat(mTestSupportService.setKeyPairCertificate(ALIAS_GENERATED, newUserCert,
+                null)).isTrue();
+        assertThat(mKeyChainService.getCertificate(ALIAS_GENERATED)).isEqualTo(newUserCert);
+        assertThat(mKeyChainService.getCaCertificates(ALIAS_GENERATED)).isNull();
+    }
+
+    void generateRsaKey(String alias) throws RemoteException {
+        ParcelableKeyGenParameterSpec parcelableSpec = new ParcelableKeyGenParameterSpec(
+                buildRsaKeySpec(alias));
+        assertThat(mTestSupportService.generateKeyPair("RSA", parcelableSpec)).isEqualTo(
+                KeyChain.KEY_GEN_SUCCESS);
+    }
+
+    void removeKeyPair(String alias) throws RemoteException {
+        assertThat(mTestSupportService.removeKeyPair(alias)).isTrue();
     }
 
     void bindTestSupportService() {
@@ -258,5 +378,17 @@ public class BasicKeyChainServiceTest {
         Log.d(TAG, "Waiting for keychain service.");
         assertThat(mKeyChainAvailable.block(10000)).isTrue();;
         assertThat(mKeyChainService).isNotNull();
+    }
+
+    private KeyGenParameterSpec buildRsaKeySpec(String alias) {
+        return new KeyGenParameterSpec.Builder(
+                alias,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setKeySize(2048)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS,
+                        KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                .setIsStrongBoxBacked(false)
+                .build();
     }
 }
