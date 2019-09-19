@@ -261,7 +261,7 @@ public class BasicKeyChainServiceTest {
     public void testAttestKeySucceedsOnGeneratedKey() throws RemoteException {
         generateRsaKey(ALIAS_GENERATED);
         assertThat(mTestSupportService.attestKey(ALIAS_GENERATED, DUMMY_CHALLENGE,
-                new int[]{})).isEqualTo(KeyChain.KEY_ATTESTATION_SUCCESS);
+                null)).isEqualTo(KeyChain.KEY_ATTESTATION_SUCCESS);
     }
 
     @Test
