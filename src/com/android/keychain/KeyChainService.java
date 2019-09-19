@@ -19,6 +19,7 @@ package com.android.keychain;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
 
+import android.annotation.Nullable;
 import android.app.BroadcastOptions;
 import android.app.IntentService;
 import android.app.admin.SecurityLog;
@@ -64,8 +65,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -73,6 +77,8 @@ public class KeyChainService extends IntentService {
 
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
+    private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
+            new HashSet(Arrays.asList(KeyStore.UID_SELF, Process.WIFI_UID)));
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -361,21 +367,47 @@ public class KeyChainService extends IntentService {
          * @param userCertificate The client certificate to be installed
          * @param userCertificateChain The rest of the chain for the client certificate
          * @param alias The alias under which the key pair is installed
+         * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
+         *            installation into the current user's system Keystore instance, or
+         *            {@code Process.WIFI_UID} to indicate installation into the main user's
+         *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
+         *            the KeyChain service on user 0.
          * @return Whether the operation succeeded or not.
          */
-        @Override public boolean installKeyPair(byte[] privateKey, byte[] userCertificate,
-                byte[] userCertificateChain, String alias) {
+        @Override public boolean installKeyPair(@Nullable byte[] privateKey,
+                @Nullable byte[] userCertificate, @Nullable byte[] userCertificateChain,
+                String alias, int uid) {
             checkCertInstallerOrSystemCaller();
+            if (!ALLOWED_UIDS.contains(uid)) {
+                Log.e(TAG,
+                        String.format("Installing alias %s as UID %d is now allowed.", alias, uid));
+                return false;
+            }
+
+            if (privateKey == null && userCertificate == null && userCertificateChain == null) {
+                Log.e(TAG, String.format("Nothing to install for alias %s", alias));
+                return false;
+            }
+
+            if (uid == Process.WIFI_UID && UserHandle.myUserId() != UserHandle.USER_SYSTEM) {
+                Log.e(TAG, String.format(
+                        "Installation into the WiFi Keystore should be called from the primary "
+                                + "user, not user %d",
+                        UserHandle.myUserId()));
+                return false;
+            }
+
             if (!removeKeyPair(alias)) {
                 return false;
             }
-            if (!mKeyStore.importKey(Credentials.USER_PRIVATE_KEY + alias, privateKey, -1,
-                    KeyStore.FLAG_NONE)) {
+            if (privateKey != null && !mKeyStore.importKey(
+                    Credentials.USER_PRIVATE_KEY + alias, privateKey, uid, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import private key " + alias);
                 return false;
             }
-            if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate, -1,
-                    KeyStore.FLAG_NONE)) {
+            if (userCertificate != null &&
+                    !mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate,
+                        uid, KeyStore.FLAG_NONE)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
                 if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
                     Log.e(TAG, "Failed to delete private key after certificate importing failed");
@@ -383,7 +415,7 @@ public class KeyChainService extends IntentService {
                 return false;
             }
             if (userCertificateChain != null && userCertificateChain.length > 0) {
-                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, -1,
+                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, uid,
                         KeyStore.FLAG_NONE)) {
                     Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
                     if (!removeKeyPair(alias)) {

@@ -68,7 +68,8 @@ public class KeyChainServiceTestSupport extends Service {
                 throws RemoteException {
             Log.d(TAG, "installKeyPair");
             return performBlockingKeyChainCall(keyChainService -> {
-                return keyChainService.installKeyPair(privateKey, userCert, certChain, alias);
+                return keyChainService.installKeyPair(
+                        privateKey, userCert, certChain, alias, KeyStore.UID_SELF);
             });
         }
 
