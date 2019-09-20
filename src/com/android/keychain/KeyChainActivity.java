@@ -145,7 +145,8 @@ public class KeyChainActivity extends Activity {
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
             @Override public void alias(String alias) {
-                // Use policy-suggested alias if provided
+                // Use policy-suggested alias if provided or abort further actions if alias is
+                // KeyChain.KEY_ALIAS_SELECTION_DENIED
                 if (alias != null) {
                     finishWithAliasFromPolicy(alias);
                     return;
@@ -496,7 +497,8 @@ public class KeyChainActivity extends Activity {
             mLoadingDialog.dismiss();
             mLoadingDialog = null;
         }
-        if (alias == null) {
+        if (alias == null || alias.equals(KeyChain.KEY_ALIAS_SELECTION_DENIED)) {
+            alias = null;
             setResult(RESULT_CANCELED);
         } else {
             Intent result = new Intent();
