@@ -522,7 +522,7 @@ public class KeyChainService extends IntentService {
         }
 
         private boolean isCallerWithSystemUid() {
-            return UserHandle.isSameApp(Binder.getCallingUid(), Process.SYSTEM_UID);
+            return UserHandle.isSameApp(mInjector.getCallingUid(), Process.SYSTEM_UID);
         }
 
         private String callingPackage() {
