@@ -30,4 +30,8 @@ android_test {
     libs: [
         "android.test.base",
     ],
+    test_suites: ["general-tests"],
+    required: [
+        "KeyChainTestsSupport",
+    ],
 }
