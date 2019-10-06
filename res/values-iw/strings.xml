@@ -23,6 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"‏ניתן להתקין אישורים מקובץ PKCS#12 עם סיומת %1$s או %2$s הממוקם באחסון חיצוני."</string>
     <string name="allow_button" msgid="3030990695030371561">"בחר"</string>
     <string name="deny_button" msgid="3766539809121892584">"דחה"</string>
-    <!-- no translation found for loading_certs_message (814752048905775439) -->
-    <skip />
+    <string name="loading_certs_message" msgid="814752048905775439">"טעינת האישורים מתבצעת…"</string>
 </resources>

@@ -23,6 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Сертификаттарды сыртқы жадта орналасқан %1$s немесе %2$s жалғаулы PKCS#12 файлынан орнатуға болады."</string>
     <string name="allow_button" msgid="3030990695030371561">"Таңдау"</string>
     <string name="deny_button" msgid="3766539809121892584">"Бас тарту"</string>
-    <!-- no translation found for loading_certs_message (814752048905775439) -->
-    <skip />
+    <string name="loading_certs_message" msgid="814752048905775439">"Сертификаттар жүктеп алынуда..."</string>
 </resources>

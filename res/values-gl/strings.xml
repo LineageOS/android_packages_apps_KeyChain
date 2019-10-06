@@ -23,6 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Podes instalar certificados dun ficheiro PKCS#12 cunha extensión %1$s ou %2$s situado no almacenamento externo."</string>
     <string name="allow_button" msgid="3030990695030371561">"Seleccionar"</string>
     <string name="deny_button" msgid="3766539809121892584">"Rexeitar"</string>
-    <!-- no translation found for loading_certs_message (814752048905775439) -->
-    <skip />
+    <string name="loading_certs_message" msgid="814752048905775439">"Cargando certificados…"</string>
 </resources>
