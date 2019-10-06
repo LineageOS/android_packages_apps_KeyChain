@@ -25,6 +25,5 @@
     <skip />
     <string name="allow_button" msgid="3030990695030371561">"Sélectionner"</string>
     <string name="deny_button" msgid="3766539809121892584">"Refuser"</string>
-    <!-- no translation found for loading_certs_message (814752048905775439) -->
-    <skip />
+    <string name="loading_certs_message" msgid="814752048905775439">"Chargement des certificats en cours…"</string>
 </resources>
