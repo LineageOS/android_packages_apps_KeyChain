@@ -174,6 +174,11 @@ public class KeyChainService extends IntentService {
             checkSystemCaller();
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
             final String alias = spec.getKeystoreAlias();
+
+            if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
+                throw new IllegalArgumentException("The alias specified for the key denotes "
+                        + "a reserved value and cannot be used to name a key");
+            }
             // Validate the alias here to avoid relying on KeyGenParameterSpec c'tor preventing
             // the creation of a KeyGenParameterSpec instance with a non-empty alias.
             if (TextUtils.isEmpty(alias) || spec.getUid() != KeyStore.UID_SELF) {
@@ -366,7 +371,8 @@ public class KeyChainService extends IntentService {
          * @param privateKey The private key associated with the client certificate
          * @param userCertificate The client certificate to be installed
          * @param userCertificateChain The rest of the chain for the client certificate
-         * @param alias The alias under which the key pair is installed
+         * @param alias The alias under which the key pair is installed. It is invalid to pass
+         *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
          * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
          *            installation into the current user's system Keystore instance, or
          *            {@code Process.WIFI_UID} to indicate installation into the main user's
@@ -378,6 +384,10 @@ public class KeyChainService extends IntentService {
                 @Nullable byte[] userCertificate, @Nullable byte[] userCertificateChain,
                 String alias, int uid) {
             checkCertInstallerOrSystemCaller();
+            if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
+                throw new IllegalArgumentException("The alias specified for the key denotes "
+                        + "a reserved value and cannot be used to name a key");
+            }
             if (!ALLOWED_UIDS.contains(uid)) {
                 Log.e(TAG,
                         String.format("Installing alias %s as UID %d is now allowed.", alias, uid));
