@@ -19,6 +19,8 @@ import static android.os.Process.WIFI_UID;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.testng.Assert.assertThrows;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -282,6 +284,30 @@ public class BasicKeyChainServiceTest {
                 null)).isTrue();
         assertThat(mKeyChainService.getCertificate(ALIAS_GENERATED)).isEqualTo(newUserCert);
         assertThat(mKeyChainService.getCaCertificates(ALIAS_GENERATED)).isNull();
+    }
+
+    @Test
+    public void testInstallKeyPairErrorOnAliasSelectionDeniedKey() throws RemoteException,
+            IOException, CertificateException {
+        PrivateKeyEntry privateKeyEntry =
+                TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
+        assertThrows(IllegalArgumentException.class, () -> {
+                mTestSupportService.installKeyPair(
+                        privateKeyEntry.getPrivateKey().getEncoded(),
+                        privateKeyEntry.getCertificate().getEncoded(),
+                        Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
+                        KeyChain.KEY_ALIAS_SELECTION_DENIED);
+        });
+    }
+
+    @Test
+    public void testGenerateKeyPairErrorOnAliasSelectionDeniedKey() throws RemoteException {
+        ParcelableKeyGenParameterSpec parcelableSpec =
+                new ParcelableKeyGenParameterSpec(buildRsaKeySpec(
+                        KeyChain.KEY_ALIAS_SELECTION_DENIED));
+        assertThrows(IllegalArgumentException.class, () -> {
+                mTestSupportService.generateKeyPair("RSA", parcelableSpec);
+        });
     }
 
     void generateRsaKey(String alias) throws RemoteException {
