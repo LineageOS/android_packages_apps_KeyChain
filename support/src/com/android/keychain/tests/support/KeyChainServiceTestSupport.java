@@ -33,7 +33,12 @@ public class KeyChainServiceTestSupport extends Service {
             = new IKeyChainServiceTestSupport.Stub() {
         @Override public boolean keystoreReset() {
             Log.d(TAG, "keystoreReset");
-            return mKeyStore.reset();
+            for (String key : mKeyStore.list("")) {
+                if (!mKeyStore.delete(key, KeyStore.UID_SELF)) {
+                    return false;
+                }
+            }
+            return true;
         }
         @Override public boolean keystoreSetPassword(String password) {
             Log.d(TAG, "keystoreSetPassword");
