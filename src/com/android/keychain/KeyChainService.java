@@ -78,8 +78,7 @@ public class KeyChainService extends IntentService {
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
     private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
-            new HashSet(Arrays.asList(KeyStore.UID_SELF, Process.FSVERITY_CERT_UID,
-                    Process.WIFI_UID)));
+            new HashSet(Arrays.asList(KeyStore.UID_SELF, Process.WIFI_UID)));
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -374,13 +373,11 @@ public class KeyChainService extends IntentService {
          * @param userCertificateChain The rest of the chain for the client certificate
          * @param alias The alias under which the key pair is installed. It is invalid to pass
          *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
-         * @param uid Can be only one of the known values: {@code KeyStore.UID_SELF} to indicate
-         *            installation into the current user's system Keystore instance,
+         * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
+         *            installation into the current user's system Keystore instance, or
          *            {@code Process.WIFI_UID} to indicate installation into the main user's
-         *            WiFi Keystore instance, or {@code Process.FSVERITY_CERT_UID} to indicate
-         *            installation into the system fs-verity Keystore instance. It is only valid to
-         *            pass {@code Process.WIFI_UID} and {@code Process.FSVERITY_CERT_UID} to the
-         *            KeyChain service on user 0.
+         *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
+         *            the KeyChain service on user 0.
          * @return Whether the operation succeeded or not.
          */
         @Override public boolean installKeyPair(@Nullable byte[] privateKey,
@@ -393,7 +390,7 @@ public class KeyChainService extends IntentService {
             }
             if (!ALLOWED_UIDS.contains(uid)) {
                 Log.e(TAG,
-                        String.format("Installing alias %s as UID %d is not allowed.", alias, uid));
+                        String.format("Installing alias %s as UID %d is now allowed.", alias, uid));
                 return false;
             }
 
@@ -402,11 +399,11 @@ public class KeyChainService extends IntentService {
                 return false;
             }
 
-            if ((uid == Process.WIFI_UID || uid == Process.FSVERITY_CERT_UID)
-                    && UserHandle.myUserId() != UserHandle.USER_SYSTEM) {
+            if (uid == Process.WIFI_UID && UserHandle.myUserId() != UserHandle.USER_SYSTEM) {
                 Log.e(TAG, String.format(
-                        "Installation into Keystore with uid %d should be called from "
-                                + "the primary user, not user %d", uid, UserHandle.myUserId()));
+                        "Installation into the WiFi Keystore should be called from the primary "
+                                + "user, not user %d",
+                        UserHandle.myUserId()));
                 return false;
             }
 
@@ -428,11 +425,7 @@ public class KeyChainService extends IntentService {
                 return false;
             }
             if (userCertificateChain != null && userCertificateChain.length > 0) {
-                String prefix = Credentials.CA_CERTIFICATE;
-                if (uid == Process.FSVERITY_CERT_UID) {
-                        prefix = Credentials.APP_SOURCE_CERTIFICATE;
-                }
-                if (!mKeyStore.put(prefix + alias, userCertificateChain, uid,
+                if (!mKeyStore.put(Credentials.CA_CERTIFICATE + alias, userCertificateChain, uid,
                         KeyStore.FLAG_NONE)) {
                     Log.e(TAG, "Failed to import certificate chain" + userCertificateChain);
                     if (!removeKeyPair(alias)) {
