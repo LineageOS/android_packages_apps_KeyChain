@@ -352,13 +352,15 @@ public class KeyChainService extends IntentService {
             } catch (IOException | CertificateException e) {
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 throw new IllegalStateException(e);
             }
             if (subjectForAudit != null) {
                 mInjector.writeSecurityEvent(
-                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit);
+                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit,
+                        UserHandle.myUserId());
             }
             broadcastLegacyStorageChange();
             broadcastTrustStoreChange();
@@ -505,14 +507,16 @@ public class KeyChainService extends IntentService {
                 mTrustedCertificateStore.deleteCertificateEntry(alias);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_REMOVED, 1 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_REMOVED, 1 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 return true;
             } catch (IOException | CertificateException e) {
                 Log.w(TAG, "Problem removing CA certificate " + alias, e);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_REMOVED, 0 /*result*/, subjectForAudit);
+                            TAG_CERT_AUTHORITY_REMOVED, 0 /*result*/, subjectForAudit,
+                            UserHandle.myUserId());
                 }
                 return false;
             }
