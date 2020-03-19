@@ -120,6 +120,7 @@ public class BasicKeyChainServiceTest {
         try {
             removeKeyPair(ALIAS_IMPORTED);
             removeKeyPair(ALIAS_GENERATED);
+            removeKeyPair(ALIAS_1);
         } catch (RemoteException e) {
             // Nothing to do here but warn that clean-up was not successful.
             Log.w(TAG, "Failed cleaning up installed keys", e);
