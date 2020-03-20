@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.keychain.tests">
+    package="com.android.keychain.tests"
+    android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.permission.INTERNET"/>
 
@@ -53,6 +54,7 @@
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.keychain.tests"
-        android:label="KeyChain Service Tests" />
+        android:targetPackage="com.android.keychain"
+        android:label="KeyChain Service Tests"
+        android:sharedUserId="android.uid.system"/>
 </manifest>
