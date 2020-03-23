@@ -9,14 +9,15 @@
 
     <application android:label="@string/app_name"
             android:allowBackup="false"
-            android:usesCleartextTraffic="false" >
+            android:usesCleartextTraffic="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light">
         <service android:name="com.android.keychain.KeyChainService">
             <intent-filter>
                 <action android:name="android.security.IKeyChainService"/>
             </intent-filter>
         </service>
         <activity android:name="com.android.keychain.KeyChainActivity"
-                  android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                  android:theme="@android:style/Theme.DeviceDefault.Light"
 		  android:excludeFromRecents="true">
 	    <intent-filter>
 	        <action android:name="com.android.keychain.CHOOSER"/>
