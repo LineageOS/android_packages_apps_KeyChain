@@ -105,7 +105,7 @@ public class KeyChainActivity extends Activity {
 
     private void showLoadingDialog() {
         final Context themedContext = new ContextThemeWrapper(
-                this, com.android.internal.R.style.Theme_DeviceDefault_DayNight);
+                this, com.android.internal.R.style.Theme_Translucent_NoTitleBar);
         mLoadingDialog = new AlertDialog.Builder(themedContext)
                 .setTitle(R.string.app_name)
                 .setMessage(R.string.loading_certs_message)
@@ -312,9 +312,7 @@ public class KeyChainActivity extends Activity {
             return;
         }
 
-        final Context themedContext = new ContextThemeWrapper(
-                this, com.android.internal.R.style.Theme_DeviceDefault_DayNight);
-        AlertDialog.Builder builder = new AlertDialog.Builder(themedContext);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setNegativeButton(R.string.deny_button, new DialogInterface.OnClickListener() {
             @Override public void onClick(DialogInterface dialog, int id) {
                 dialog.cancel(); // will cause OnDismissListener to be called
@@ -360,7 +358,7 @@ public class KeyChainActivity extends Activity {
 
         // Show text above the list to explain what the certificate will be used for.
         TextView contextView = (TextView) View.inflate(
-                themedContext, R.layout.cert_chooser_header, null);
+                this, R.layout.cert_chooser_header, null);
 
         final ListView lv = dialog.getListView();
         lv.addHeaderView(contextView, null, false);
