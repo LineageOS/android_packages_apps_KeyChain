@@ -18,8 +18,8 @@
             </intent-filter>
         </service>
         <activity android:name="com.android.keychain.KeyChainActivity"
-                  android:theme="@android:style/Theme.DeviceDefault.Light"
                   android:exported="true"
+                  android:theme="@style/KeyChainTransparent"
 		  android:excludeFromRecents="true">
 	    <intent-filter>
 	        <action android:name="com.android.keychain.CHOOSER"/>
