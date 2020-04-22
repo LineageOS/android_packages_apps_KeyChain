@@ -175,8 +175,10 @@ public class KeyChainActivity extends Activity {
                 }
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        mLoadingDialog.dismiss();
-                        mLoadingDialog = null;
+                        if (mLoadingDialog != null) {
+                            mLoadingDialog.dismiss();
+                            mLoadingDialog = null;
+                        }
                         displayCertChooserDialog(certAdapter);
                     }
                 });
