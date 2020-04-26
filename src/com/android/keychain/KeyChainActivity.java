@@ -149,6 +149,7 @@ public class KeyChainActivity extends Activity {
 
         final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
             @Override public void alias(String alias) {
+                Log.i(TAG, String.format("Alias provided by device policy client: %s", alias));
                 // Use policy-suggested alias if provided or abort further actions if alias is
                 // KeyChain.KEY_ALIAS_SELECTION_DENIED
                 if (alias != null) {
@@ -597,6 +598,7 @@ public class KeyChainActivity extends Activity {
     private static X509Certificate loadCertificate(KeyStore keyStore, String alias) {
         byte[] bytes = keyStore.get(Credentials.USER_CERTIFICATE + alias);
         if (bytes == null) {
+            Log.i(TAG, String.format("Missing user certificate for key alias %s", alias));
             return null;
         }
         InputStream in = new ByteArrayInputStream(bytes);
@@ -612,6 +614,7 @@ public class KeyChainActivity extends Activity {
     private static List<X509Certificate> loadCertificateChain(KeyStore keyStore, String alias) {
         byte[] chainBytes = keyStore.get(Credentials.CA_CERTIFICATE + alias);
         if (chainBytes == null) {
+            Log.i(TAG, String.format("Missing certificate chain for key alias %s", alias));
             return Collections.emptyList();
         }
 
