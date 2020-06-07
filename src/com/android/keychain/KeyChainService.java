@@ -44,6 +44,7 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.security.keystore.StrongBoxUnavailableException;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -141,6 +142,7 @@ public class KeyChainService extends IntentService {
 
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int uid = mInjector.getCallingUid();
+            Log.i(TAG, String.format("UID %d will be granted access to %s", uid, keystoreAlias));
             return mKeyStore.grant(keystoreAlias, uid);
         }
 
@@ -166,6 +168,8 @@ public class KeyChainService extends IntentService {
         @Override public void setUserSelectable(String alias, boolean isUserSelectable) {
             validateAlias(alias);
             checkSystemCaller();
+            Log.i(TAG, String.format("Marking certificate %s as user-selectable: %b", alias,
+                    isUserSelectable));
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
         }
 
@@ -174,6 +178,9 @@ public class KeyChainService extends IntentService {
             checkSystemCaller();
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
             final String alias = spec.getKeystoreAlias();
+
+            Log.i(TAG, String.format("About to generate key with alias %s, algorithm %s",
+                    alias, algorithm));
 
             if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
                 throw new IllegalArgumentException("The alias specified for the key denotes "
@@ -238,6 +245,12 @@ public class KeyChainService extends IntentService {
                 return KeyChain.KEY_ATTESTATION_MISSING_CHALLENGE;
             }
 
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("About to attest key alias %s, challenge %s, flags %s",
+                        alias, Base64.encodeToString(attestationChallenge, Base64.NO_WRAP),
+                        Arrays.toString(idAttestationFlags)));
+            }
+
             final KeymasterArguments attestArgs;
             try {
                 attestArgs = AttestationUtils.prepareAttestationArguments(
@@ -285,6 +298,12 @@ public class KeyChainService extends IntentService {
                     Log.e(TAG, "Failed to remove CA certificate chain for alias " + alias);
                 }
             }
+
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("Set certificate for key alias %s : user %s CA chain: %s",
+                        alias, emptyOrBase64Encoded(userCertificate),
+                        emptyOrBase64Encoded(userCertificateChain)));
+            }
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
@@ -316,15 +335,24 @@ public class KeyChainService extends IntentService {
             String subjectForAudit = null;
             try {
                 final X509Certificate cert = parseCertificate(caCertificate);
-                if (mInjector.isSecurityLoggingEnabled()) {
-                    subjectForAudit =
+                final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
+                final boolean isDebugLoggable = Log.isLoggable(TAG, Log.DEBUG);
+                if (isSecurityLoggingEnabled || isDebugLoggable) {
+                    final String subject =
                             cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                    if (isDebugLoggable) {
+                        Log.d(TAG, String.format("Installing CA certificate: %s", subject));
+                    }
+                    if (isSecurityLoggingEnabled) {
+                        subjectForAudit = subject;
+                    }
                 }
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(cert);
                     alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
             } catch (IOException | CertificateException e) {
+                Log.w(TAG, "Failed installing CA certificate", e);
                 if (subjectForAudit != null) {
                     mInjector.writeSecurityEvent(
                             TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit,
@@ -382,6 +410,13 @@ public class KeyChainService extends IntentService {
                                 + "user, not user %d",
                         UserHandle.myUserId()));
                 return false;
+            }
+
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, String.format("Installing certificate and key to alias %s to uid %d: "
+                                + "user cert %s CA chain: %s", alias, uid,
+                                emptyOrBase64Encoded(userCertificate),
+                                emptyOrBase64Encoded(userCertificateChain)));
             }
 
             if (!removeKeyPair(alias)) {
@@ -460,6 +495,7 @@ public class KeyChainService extends IntentService {
             // only Settings should be able to delete
             checkSystemCaller();
             boolean ok = true;
+            Log.i(TAG, String.format("Deleting CA certificate %s", alias));
             synchronized (mTrustedCertificateStore) {
                 ok = deleteCertificateEntry(alias);
             }
@@ -641,6 +677,13 @@ public class KeyChainService extends IntentService {
             intent.setPackage(pckg);
             sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
         }
+    }
+
+    private static String emptyOrBase64Encoded(byte[] cert) {
+        if (cert == null) {
+            return "";
+        }
+        return Base64.encodeToString(cert, Base64.NO_WRAP);
     }
 
     @VisibleForTesting
