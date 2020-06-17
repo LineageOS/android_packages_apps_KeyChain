@@ -133,14 +133,21 @@ public class KeyChainActivity extends Activity {
             }
         };
 
+        Log.i(TAG, String.format("Requested by app uid %d to provide a private key alias",
+                mSenderUid));
+
         String[] keyTypes = getIntent().getStringArrayExtra(KeyChain.EXTRA_KEY_TYPES);
         if (keyTypes == null) {
             keyTypes = new String[]{};
         }
+        Log.i(TAG, String.format("Key types specified: %s", Arrays.toString(keyTypes)));
+
         ArrayList<byte[]> issuers = (ArrayList<byte[]>) getIntent().getSerializableExtra(
                 KeyChain.EXTRA_ISSUERS);
         if (issuers == null) {
             issuers = new ArrayList<byte[]>();
+        } else {
+            Log.i(TAG, "Issuers specified, will be listed later.");
         }
 
         final AliasLoader loader = new AliasLoader(mKeyStore, this, keyInfoProvider,
@@ -171,6 +178,7 @@ public class KeyChainActivity extends Activity {
                  * the dialog. This is in line with what other operating systems do.
                  */
                 if (!certAdapter.hasKeysToChoose()) {
+                    Log.i(TAG, "No keys to choose from");
                     finish(null);
                     return;
                 }
@@ -234,6 +242,7 @@ public class KeyChainActivity extends Activity {
             X509Certificate cert = loadCertificate(mKeyStore, alias);
             // If there's no certificate associated with the alias, skip.
             if (cert == null) {
+                Log.i(TAG, String.format("No certificate associated with alias %s", alias));
                 return false;
             }
             List<X509Certificate> certChain = new ArrayList(loadCertificateChain(mKeyStore, alias));
@@ -270,6 +279,7 @@ public class KeyChainActivity extends Activity {
             if (!mIssuers.isEmpty()) {
                 for (X500Principal issuer : chainIssuers) {
                     if (mIssuers.contains(issuer)) {
+                        Log.i(TAG, String.format("Requested issuer found: %s", issuer));
                         return true;
                     }
                 }
@@ -347,6 +357,7 @@ public class KeyChainActivity extends Activity {
                     String alias = ((adapterPosition >= 0)
                                     ? adapter.getItem(adapterPosition)
                                     : null);
+                    Log.i(TAG, String.format("User chose: %s", alias));
                     finish(alias);
                 } else {
                     Log.wtf(TAG, "Expected AlertDialog, got " + dialog, new Exception());
