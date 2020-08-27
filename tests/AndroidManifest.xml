@@ -40,14 +40,12 @@
     -->
     <application>
         <uses-library android:name="android.test.runner" />
-        <activity android:name="com.android.keychain.tests.KeyChainTestActivity"
-            android:exported="true">
+        <activity android:name="com.android.keychain.tests.KeyChainTestActivity">
             <intent-filter>
                 <action android:name="com.android.keychain.tests.KeyChainTestActivity"/>
             </intent-filter>
         </activity>
-        <activity android:name="com.android.keychain.tests.KeyChainSocketTestActivity"
-            android:exported="true">
+        <activity android:name="com.android.keychain.tests.KeyChainSocketTestActivity">
             <intent-filter>
                 <action android:name="com.android.keychain.tests.KeyChainSocketTestActivity"/>
             </intent-filter>
