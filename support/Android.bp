@@ -26,7 +26,4 @@ android_test_helper_app {
         "junit",
     ],
     certificate: "platform",
-    test_suites: [
-        "general-tests",
-    ]
 }
