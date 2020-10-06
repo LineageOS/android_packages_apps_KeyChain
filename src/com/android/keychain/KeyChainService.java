@@ -357,39 +357,51 @@ public class KeyChainService extends IntentService {
         @Override public String installCaCertificate(byte[] caCertificate) {
             checkCertInstallerOrSystemCaller();
             final String alias;
-            String subjectForAudit = null;
+            String subject = null;
+            final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
             try {
                 final X509Certificate cert = parseCertificate(caCertificate);
-                final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
+
                 final boolean isDebugLoggable = Log.isLoggable(TAG, Log.DEBUG);
-                if (isSecurityLoggingEnabled || isDebugLoggable) {
-                    final String subject =
-                            cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
-                    if (isDebugLoggable) {
-                        Log.d(TAG, String.format("Installing CA certificate: %s", subject));
-                    }
-                    if (isSecurityLoggingEnabled) {
-                        subjectForAudit = subject;
-                    }
+                subject = cert.getSubjectX500Principal().getName(X500Principal.CANONICAL);
+                if (isDebugLoggable) {
+                    Log.d(TAG, String.format("Installing CA certificate: %s", subject));
                 }
+
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(cert);
                     alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
             } catch (IOException | CertificateException e) {
                 Log.w(TAG, "Failed installing CA certificate", e);
-                if (subjectForAudit != null) {
+                if (isSecurityLoggingEnabled && subject != null) {
                     mInjector.writeSecurityEvent(
-                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subjectForAudit,
+                            TAG_CERT_AUTHORITY_INSTALLED, 0 /*result*/, subject,
                             UserHandle.myUserId());
                 }
                 throw new IllegalStateException(e);
             }
-            if (subjectForAudit != null) {
+            if (isSecurityLoggingEnabled && subject != null) {
                 mInjector.writeSecurityEvent(
-                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subjectForAudit,
+                        TAG_CERT_AUTHORITY_INSTALLED, 1 /*result*/, subject,
                         UserHandle.myUserId());
             }
+
+            // If the caller is the cert installer, install the CA certificate into KeyStore.
+            // This is a temporary solution to enable CA certificates to be used as VPN trust
+            // anchors. Ultimately, the user should explicitly choose to install the VPN trust
+            // anchor separately and independently of CA certificates, at which point this code
+            // should be removed.
+            if (CERT_INSTALLER_PACKAGE.equals(callingPackage())) {
+                final boolean result = mKeyStore.put(
+                        String.format("%s%s %s", Credentials.CA_CERTIFICATE, subject, alias),
+                        caCertificate, Process.SYSTEM_UID,
+                        KeyStore.FLAG_NONE);
+                Log.d(TAG, String.format(
+                        "Attempted installing %s (subject: %s) to KeyStore. Result: %b", alias,
+                        subject, result));
+            }
+
             broadcastLegacyStorageChange();
             broadcastTrustStoreChange();
             return alias;
