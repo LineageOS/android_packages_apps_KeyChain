@@ -20,16 +20,21 @@ import android.annotation.NonNull;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.app.admin.DevicePolicyManager;
 import android.app.admin.IDevicePolicyManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.os.UserManager;
 import android.security.Credentials;
 import android.security.IKeyChainAliasCallback;
 import android.security.KeyChain;
@@ -50,8 +55,8 @@ import com.android.keychain.internal.KeyInfoProvider;
 import com.android.org.bouncycastle.asn1.x509.X509Name;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -60,6 +65,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
@@ -68,6 +75,7 @@ public class KeyChainActivity extends Activity {
     private static final String TAG = "KeyChain";
 
     private int mSenderUid;
+    private String mSenderPackageName;
 
     private PendingIntent mSender;
 
@@ -81,6 +89,9 @@ public class KeyChainActivity extends Activity {
     // certificates.
     AlertDialog mLoadingDialog;
 
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private Handler handler = new Handler(Looper.getMainLooper());
+
     @Override public void onResume() {
         super.onResume();
 
@@ -91,8 +102,9 @@ public class KeyChainActivity extends Activity {
             return;
         }
         try {
+            mSenderPackageName = mSender.getIntentSender().getTargetPackage();
             mSenderUid = getPackageManager().getPackageInfo(
-                    mSender.getIntentSender().getTargetPackage(), 0).applicationInfo.uid;
+                    mSenderPackageName, 0).applicationInfo.uid;
         } catch (PackageManager.NameNotFoundException e) {
             // if unable to find the sender package info bail,
             // we need to identify the app to the user securely.
@@ -196,24 +208,78 @@ public class KeyChainActivity extends Activity {
 
         // Show a dialog to the user to indicate long-running task.
         showLoadingDialog();
-        // Give a profile or device owner the chance to intercept the request, if a private key
-        // access listener is registered with the DevicePolicyManagerService.
-        IDevicePolicyManager devicePolicyManager = IDevicePolicyManager.Stub.asInterface(
-                ServiceManager.getService(Context.DEVICE_POLICY_SERVICE));
-
         Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
         String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
-        try {
-            devicePolicyManager.choosePrivateKeyAlias(mSenderUid, uri, alias, callback);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Unable to request alias from DevicePolicyManager", e);
-            // Proceed without a suggested alias.
+
+        if (isManagedDevice()) {
+            // Give a profile or device owner the chance to intercept the request, if a private key
+            // access listener is registered with the DevicePolicyManagerService.
+            IDevicePolicyManager devicePolicyManager = IDevicePolicyManager.Stub.asInterface(
+                    ServiceManager.getService(Context.DEVICE_POLICY_SERVICE));
             try {
-                callback.alias(null);
-            } catch (RemoteException shouldNeverHappen) {
-                finish(null);
+                devicePolicyManager.choosePrivateKeyAlias(mSenderUid, uri, alias, callback);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Unable to request alias from DevicePolicyManager", e);
+                // Proceed without a suggested alias.
+                try {
+                    callback.alias(null);
+                } catch (RemoteException shouldNeverHappen) {
+                    finish(null);
+                }
+            }
+        } else {
+            // If the device is unmanaged, check whether the credential management app has provided
+            // an alias for the given uri and calling package name.
+            getAliasFromCredentialManagementApp(uri, callback);
+        }
+    }
+
+    private boolean isManagedDevice() {
+        DevicePolicyManager devicePolicyManager = getSystemService(DevicePolicyManager.class);
+        return devicePolicyManager.getDeviceOwner() != null
+                || devicePolicyManager.getProfileOwner() != null
+                || hasManagedProfile();
+    }
+
+    private boolean hasManagedProfile() {
+        UserManager userManager = getSystemService(UserManager.class);
+        for (final UserInfo userInfo : userManager.getProfiles(getUserId())) {
+            if (userInfo.isManagedProfile()) {
+                return true;
             }
         }
+        return false;
+    }
+
+    private void getAliasFromCredentialManagementApp(Uri uri,
+            IKeyChainAliasCallback.Stub callback) {
+        executor.execute(() -> {
+            try (KeyChain.KeyChainConnection keyChainConnection = KeyChain.bind(this)) {
+                String chosenAlias = null;
+                if (keyChainConnection.getService().hasCredentialManagementApp()) {
+                    Log.i(TAG, "There is a credential management app on the device. "
+                            + "Looking for an alias in the policy.");
+                    chosenAlias = keyChainConnection.getService()
+                            .getPredefinedAliasForPackageAndUri(mSenderPackageName, uri);
+                    if (chosenAlias != null) {
+                        keyChainConnection.getService().setGrant(mSenderUid, chosenAlias, true);
+                        Log.w(TAG, String.format("Selected alias %s from the "
+                                + "credential management app's policy", chosenAlias));
+                    } else {
+                        Log.i(TAG, "No alias provided from the credential management app");
+                    }
+                }
+                callback.alias(chosenAlias);
+            } catch (InterruptedException | RemoteException e) {
+                Log.e(TAG, "Unable to request alias from credential management app");
+                // Proceed without a suggested alias.
+                try {
+                    callback.alias(null);
+                } catch (RemoteException shouldNeverHappen) {
+                    finish(null);
+                }
+            }
+        });
     }
 
     @VisibleForTesting
