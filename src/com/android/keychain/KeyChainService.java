@@ -595,6 +595,14 @@ public class KeyChainService extends IntentService {
             broadcastLegacyStorageChange();
         }
 
+        @Override public int[] getGrants(String alias) {
+            checkSystemCaller();
+            if (!mKeyStore.contains(Credentials.USER_PRIVATE_KEY + alias)) {
+                throw new IllegalArgumentException("Alias not found: " + alias);
+            }
+            return mGrantsDb.getGrants(alias);
+        }
+
         @Override
         public StringParceledListSlice getUserCaAliases() {
             synchronized (mTrustedCertificateStore) {
