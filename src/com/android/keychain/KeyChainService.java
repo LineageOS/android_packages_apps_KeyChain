@@ -21,11 +21,13 @@ import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.AppOpsManager;
 import android.app.BroadcastOptions;
 import android.app.IntentService;
 import android.app.admin.SecurityLog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.StringParceledListSlice;
 import android.net.Uri;
@@ -51,6 +53,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.keychain.internal.ExistingKeysProvider;
@@ -92,7 +95,9 @@ public class KeyChainService extends IntentService {
     private final KeyStore mKeyStore = KeyStore.getInstance();
     private KeyChainStateStorage mStateStorage;
 
+    private Object mCredentialManagementAppLock = new Object();
     @Nullable
+    @GuardedBy("mCredentialManagementAppLock")
     private CredentialManagementApp mCredentialManagementApp;
 
     public KeyChainService() {
@@ -104,7 +109,10 @@ public class KeyChainService extends IntentService {
         super.onCreate();
         mGrantsDb = new GrantsDatabase(this, new KeyStoreAliasesProvider(mKeyStore));
         mStateStorage = new KeyChainStateStorage(getDataDir());
-        mCredentialManagementApp = mStateStorage.loadCredentialManagementApp();
+
+        synchronized (mCredentialManagementAppLock) {
+            mCredentialManagementApp = mStateStorage.loadCredentialManagementApp();
+        }
     }
 
     @Override
@@ -673,20 +681,42 @@ public class KeyChainService extends IntentService {
                 @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
             checkSystemCaller();
             checkValidAuthenticationPolicy(authenticationPolicy);
-            mCredentialManagementApp = new CredentialManagementApp(packageName,
-                    authenticationPolicy);
-            synchronized (mStateStorage) {
+
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp != null) {
+                    final String existingPackage = mCredentialManagementApp.getPackageName();
+                    if (existingPackage.equals(packageName)) {
+                        // Update existing credential management app's policy
+                        removeOrphanedKeyPairs(authenticationPolicy);
+                    } else {
+                        // Replace existing credential management app
+                        removeOrphanedKeyPairs(null);
+                        setManageCredentialsAppOps(existingPackage, false);
+                    }
+                }
+                setManageCredentialsAppOps(packageName, true);
+                mCredentialManagementApp = new CredentialManagementApp(packageName,
+                        authenticationPolicy);
                 mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
             }
         }
 
-        @Override
-        public void updateCredentialManagementAppPolicy(
-                @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
-            checkSystemCaller();
-            checkValidAuthenticationPolicy(authenticationPolicy);
-            Set<String> existingAliases = getCredentialManagementAppPolicy().getAliases();
-            Set<String> newAliases = authenticationPolicy.getAliases();
+        private void setManageCredentialsAppOps(String packageName, boolean allowed) {
+            try {
+                int mode = allowed ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_DEFAULT;
+                ApplicationInfo appInfo = getPackageManager().getApplicationInfo(packageName, 0);
+                getSystemService(AppOpsManager.class).setMode(AppOpsManager.OP_MANAGE_CREDENTIALS,
+                        appInfo.uid, packageName, mode);
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.e(TAG, "Unable to find info for package: " + packageName);
+            }
+        }
+
+        private void removeOrphanedKeyPairs(
+                @Nullable AppUriAuthenticationPolicy newPolicy) {
+            Set<String> existingAliases = mCredentialManagementApp.getAuthenticationPolicy()
+                    .getAliases();
+            Set<String> newAliases = newPolicy != null ? newPolicy.getAliases() : new HashSet<>();
 
             // Uninstall all certificates that are no longer included in the new
             // authentication policy
@@ -695,8 +725,6 @@ public class KeyChainService extends IntentService {
                     removeKeyPair(existingAlias);
                 }
             }
-            mCredentialManagementApp.setAuthenticationPolicy(authenticationPolicy);
-            mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
         }
 
         private void checkValidAuthenticationPolicy(
@@ -717,25 +745,31 @@ public class KeyChainService extends IntentService {
         @Override
         public boolean hasCredentialManagementApp() {
             checkSystemCaller();
-            return mCredentialManagementApp != null;
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null;
+            }
         }
 
         @Nullable
         @Override
         public String getCredentialManagementAppPackageName() {
             checkSystemCaller();
-            return mCredentialManagementApp != null
-                    ? mCredentialManagementApp.getPackageName()
-                    : null;
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null
+                        ? mCredentialManagementApp.getPackageName()
+                        : null;
+            }
         }
 
         @Nullable
         @Override
         public AppUriAuthenticationPolicy getCredentialManagementAppPolicy() {
             checkSystemCaller();
-            return mCredentialManagementApp != null
-                    ? mCredentialManagementApp.getAuthenticationPolicy()
-                    : null;
+            synchronized (mCredentialManagementAppLock) {
+                return mCredentialManagementApp != null
+                        ? mCredentialManagementApp.getAuthenticationPolicy()
+                        : null;
+            }
         }
 
         @Nullable
@@ -743,28 +777,29 @@ public class KeyChainService extends IntentService {
         public String getPredefinedAliasForPackageAndUri(@NonNull String packageName,
                 @NonNull Uri uri) {
             checkSystemCaller();
-            if (mCredentialManagementApp == null) {
-                return null;
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp == null) {
+                    return null;
+                }
+                Map<Uri, String> urisToAliases = mCredentialManagementApp.getAuthenticationPolicy()
+                        .getAppAndUriMappings().get(packageName);
+                return urisToAliases.get(uri);
             }
-            Map<Uri, String> urisToAliases = mCredentialManagementApp.getAuthenticationPolicy()
-                    .getAppAndUriMappings().get(packageName);
-            return urisToAliases.get(uri);
         }
 
         @Override
         public void removeCredentialManagementApp() {
             checkSystemCaller();
-            // Remove all certificates
-            if (mCredentialManagementApp != null) {
-                for (String existingAlias :
-                        mCredentialManagementApp.getAuthenticationPolicy().getAliases()) {
-                    removeKeyPair(existingAlias);
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp != null) {
+                    // Remove all certificates
+                    removeOrphanedKeyPairs(null);
+                    setManageCredentialsAppOps(mCredentialManagementApp.getPackageName(), false);
                 }
+                mCredentialManagementApp = null;
+                mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
             }
-            mCredentialManagementApp = null;
-            mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
         }
-
     };
 
     @Override public IBinder onBind(Intent intent) {
