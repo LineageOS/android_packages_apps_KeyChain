@@ -47,7 +47,7 @@ import android.widget.TextView;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.keychain.internal.KeyInfoProvider;
-import com.android.org.bouncycastle.asn1.x509.X509Name;
+import org.bouncycastle.asn1.x509.X509Name;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
