@@ -251,7 +251,7 @@ public class KeyChainService extends IntentService {
                         Arrays.toString(idAttestationFlags)));
             }
 
-            KeymasterArguments attestArgs;
+            final KeymasterArguments attestArgs;
             try {
                 attestArgs = AttestationUtils.prepareAttestationArguments(
                         mContext, idAttestationFlags, attestationChallenge);
@@ -259,31 +259,6 @@ public class KeyChainService extends IntentService {
                 Log.e(TAG, "Failed collecting attestation data", e);
                 return KeyChain.KEY_ATTESTATION_CANNOT_COLLECT_DATA;
             }
-            int errorCode = checkKeyChainStatus(alias, attestationChain, attestArgs);
-            if (errorCode == KeyChain.KEY_ATTESTATION_CANNOT_ATTEST_IDS) {
-                // b/69471841: id attestation might fail due to incorrect provisioning of device
-                try {
-                    attestArgs =
-                            AttestationUtils.prepareAttestationArgumentsIfMisprovisioned(
-                            mContext, idAttestationFlags, attestationChallenge);
-                    if (attestArgs == null) {
-                        return errorCode;
-                    }
-                } catch (DeviceIdAttestationException e) {
-                    Log.e(TAG, "Failed collecting attestation data "
-                            + "during second attempt on misprovisioned device", e);
-                    return KeyChain.KEY_ATTESTATION_CANNOT_COLLECT_DATA;
-                }
-            }
-
-            return checkKeyChainStatus(alias, attestationChain, attestArgs);
-        }
-
-        private int checkKeyChainStatus(
-                String alias,
-                KeymasterCertificateChain attestationChain,
-                KeymasterArguments attestArgs) {
-
             final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
             final int errorCode = mKeyStore.attestKey(keystoreAlias, attestArgs, attestationChain);
             if (errorCode != KeyStore.NO_ERROR) {
@@ -500,6 +475,12 @@ public class KeyChainService extends IntentService {
             broadcastKeychainChange();
             broadcastLegacyStorageChange();
             return true;
+        }
+
+        @Override public boolean containsKeyPair(String alias) {
+            checkSystemCaller();
+            return mKeyStore.contains(Credentials.USER_PRIVATE_KEY + alias) &&
+                    mKeyStore.contains(Credentials.USER_CERTIFICATE + alias);
         }
 
         private X509Certificate parseCertificate(byte[] bytes) throws CertificateException {

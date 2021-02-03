@@ -18,6 +18,7 @@ package com.android.keychain.tests;
 import static android.os.Process.WIFI_UID;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.testng.Assert.assertThrows;
 
@@ -41,8 +42,10 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 import com.android.keychain.tests.support.IKeyChainServiceTestSupport;
 import java.io.IOException;
+import java.security.KeyStore;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import libcore.java.security.TestKeyStore;
 import org.junit.After;
@@ -393,6 +396,33 @@ public class BasicKeyChainServiceTest {
         assertThat(
                 mTestSupportService.keystorePut(alias1RootCert, Credentials.convertToPem(root1)))
             .isTrue();
+    }
+
+    @Test
+    public void testContainsKeyPair_NonExisting() throws RemoteException {
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_NON_EXISTING)).isFalse();
+    }
+
+    @Test
+    public void testContainsKeyPair_ImportedKey() throws Exception {
+        installTestRsaKey();
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_IMPORTED)).isTrue();
+    }
+
+    @Test
+    public void testContainsKeyPair_RemovedKey() throws Exception {
+        installTestRsaKey();
+        mKeyChainService.removeKeyPair(ALIAS_IMPORTED);
+        assertThat(mKeyChainService.containsKeyPair(ALIAS_IMPORTED)).isFalse();
+    }
+
+    private void installTestRsaKey() throws Exception {
+        final PrivateKeyEntry privateKeyEntry =
+                TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
+        mTestSupportService.installKeyPair(privateKeyEntry.getPrivateKey().getEncoded(),
+                privateKeyEntry.getCertificate().getEncoded(),
+                Credentials.convertToPem(privateKeyEntry.getCertificateChain()),
+                ALIAS_IMPORTED);
     }
 
     void waitForSupportService() {
