@@ -477,6 +477,12 @@ public class KeyChainService extends IntentService {
             return true;
         }
 
+        @Override public boolean containsKeyPair(String alias) {
+            checkSystemCaller();
+            return mKeyStore.contains(Credentials.USER_PRIVATE_KEY + alias) &&
+                    mKeyStore.contains(Credentials.USER_CERTIFICATE + alias);
+        }
+
         private X509Certificate parseCertificate(byte[] bytes) throws CertificateException {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(bytes));
