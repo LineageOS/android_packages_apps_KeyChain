@@ -19,6 +19,7 @@ package com.android.keychain;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -33,6 +34,8 @@ import static org.robolectric.Shadows.shadowOf;
 import android.app.admin.SecurityLog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.security.AppUriAuthenticationPolicy;
 import android.security.IKeyChainService;
 
 import com.android.org.conscrypt.TrustedCertificateStore;
@@ -99,6 +102,15 @@ public final class KeyChainServiceRoboTest {
             "-----END CERTIFICATE-----\n";
 
     private static final String NON_EXISTING_ALIAS = "alias-does-not-exist-1";
+
+    private static final String TEST_PACKAGE_NAME_1 = "com.android.test";
+    private static final Uri TEST_URI_1 = Uri.parse("test.com");
+    private static final String TEST_ALIAS_1 = "testAlias";
+    private static final String CREDENTIAL_MANAGER_PACKAGE = "com.android.cred.mng.pkg";
+    private static final AppUriAuthenticationPolicy AUTHENTICATION_POLICY =
+            new AppUriAuthenticationPolicy.Builder()
+                    .addAppAndUriMapping(TEST_PACKAGE_NAME_1, TEST_URI_1, TEST_ALIAS_1)
+                    .build();
 
     private X509Certificate mCert;
     private String mSubject;
@@ -239,10 +251,91 @@ public final class KeyChainServiceRoboTest {
         assertThat(certificate).isNull();
     }
 
+    @Test
+    public void testHasCredentialManagementApp_noManagementApp_returnsFalse() throws Exception {
+        setUpSystemCaller();
+        assertFalse(mKeyChain.hasCredentialManagementApp());
+    }
+
+    @Test
+    public void testGetCredentialManagementAppPackageName_noManagementApp_returnsNull()
+            throws Exception {
+        setUpSystemCaller();
+        assertThat(mKeyChain.getCredentialManagementAppPackageName()).isNull();
+    }
+
+    @Test
+    public void testGetCredentialManagementAppPolicy_noManagementApp_returnsNull()
+            throws Exception {
+        setUpSystemCaller();
+        assertThat(mKeyChain.getCredentialManagementAppPolicy()).isNull();
+    }
+
+    @Test
+    public void testGetPredefinedAliasForPackageAndUri_noManagementApp_returnsNull()
+            throws Exception {
+        setUpSystemCaller();
+        assertThat(mKeyChain.getPredefinedAliasForPackageAndUri(TEST_PACKAGE_NAME_1,
+                TEST_URI_1)).isNull();
+    }
+
+    @Test
+    public void testHasCredentialManagement_hasManagementApp_returnsTrue() throws Exception {
+        setUpSystemCaller();
+        mKeyChain.setCredentialManagementApp(CREDENTIAL_MANAGER_PACKAGE, AUTHENTICATION_POLICY);
+
+        assertTrue(mKeyChain.hasCredentialManagementApp());
+    }
+
+    @Test
+    public void testGetCredentialManagementAppPackageName_hasManagementApp_returnsPackageName()
+            throws Exception {
+        setUpSystemCaller();
+        mKeyChain.setCredentialManagementApp(CREDENTIAL_MANAGER_PACKAGE, AUTHENTICATION_POLICY);
+
+        assertThat(mKeyChain.getCredentialManagementAppPackageName())
+                .isEqualTo(CREDENTIAL_MANAGER_PACKAGE);
+    }
+
+    @Test
+    public void testGetCredentialManagementAppPolicy_hasManagementApp_returnsPolicy()
+            throws Exception {
+        setUpSystemCaller();
+        mKeyChain.setCredentialManagementApp(CREDENTIAL_MANAGER_PACKAGE, AUTHENTICATION_POLICY);
+
+        assertThat(mKeyChain.getCredentialManagementAppPolicy()).isEqualTo(AUTHENTICATION_POLICY);
+    }
+
+    @Test
+    public void testGetPredefinedAliasForPackageAndUri_hasManagementApp_returnsCorrectAlias()
+            throws Exception {
+        setUpSystemCaller();
+        mKeyChain.setCredentialManagementApp(CREDENTIAL_MANAGER_PACKAGE, AUTHENTICATION_POLICY);
+
+        assertThat(mKeyChain.getPredefinedAliasForPackageAndUri(TEST_PACKAGE_NAME_1, TEST_URI_1))
+                .isEqualTo(TEST_ALIAS_1);
+    }
+
+    @Test
+    public void testRemoveCredentialManagementApp_hasManagementApp_removesManagementApp()
+            throws Exception {
+        setUpSystemCaller();
+
+        mKeyChain.removeCredentialManagementApp();
+
+        assertFalse(mKeyChain.hasCredentialManagementApp());
+        assertThat(mKeyChain.getCredentialManagementAppPackageName()).isNull();
+        assertThat(mKeyChain.getCredentialManagementAppPolicy()).isNull();
+    }
+
     private void setUpLoggingAndAccess(boolean loggingEnabled) {
         doReturn(loggingEnabled).when(mockInjector).isSecurityLoggingEnabled();
 
         // Pretend that the caller is system.
+        setUpCaller(1000, "android.uid.system:1000");
+    }
+
+    private void setUpSystemCaller() {
         setUpCaller(1000, "android.uid.system:1000");
     }
 
