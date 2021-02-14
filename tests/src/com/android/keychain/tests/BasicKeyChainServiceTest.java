@@ -416,6 +416,29 @@ public class BasicKeyChainServiceTest {
         assertThat(mKeyChainService.containsKeyPair(ALIAS_IMPORTED)).isFalse();
     }
 
+    @Test
+    public void testGetGrants_NonExisting() {
+        assertThrows(IllegalArgumentException.class,
+                () -> mKeyChainService.getGrants(ALIAS_NON_EXISTING));
+    }
+
+    @Test
+    public void testGetGrants_Empty() throws Exception {
+        installTestRsaKey();
+
+        assertThat(mKeyChainService.getGrants(ALIAS_IMPORTED)).isEmpty();
+    }
+
+    @Test
+    public void testGetGrants_NonEmpty() throws Exception {
+        final int uid = Process.myUid();
+
+        installTestRsaKey();
+        mTestSupportService.grantAppPermission(uid, ALIAS_IMPORTED);
+
+        assertThat(mKeyChainService.getGrants(ALIAS_IMPORTED)).isEqualTo(new int[] {uid});
+    }
+
     private void installTestRsaKey() throws Exception {
         final PrivateKeyEntry privateKeyEntry =
                 TestKeyStore.getClientCertificate().getPrivateKey("RSA", "RSA");
