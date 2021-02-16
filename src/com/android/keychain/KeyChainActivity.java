@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.app.admin.DevicePolicyEventLogger;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.IDevicePolicyManager;
 import android.content.Context;
@@ -39,6 +40,7 @@ import android.security.Credentials;
 import android.security.IKeyChainAliasCallback;
 import android.security.KeyChain;
 import android.security.KeyStore;
+import android.stats.devicepolicy.DevicePolicyEnums;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -265,18 +267,28 @@ public class KeyChainActivity extends Activity {
                         keyChainConnection.getService().setGrant(mSenderUid, chosenAlias, true);
                         Log.w(TAG, String.format("Selected alias %s from the "
                                 + "credential management app's policy", chosenAlias));
+                        DevicePolicyEventLogger
+                                .createEvent(DevicePolicyEnums
+                                        .CREDENTIAL_MANAGEMENT_APP_CREDENTIAL_FOUND_IN_POLICY)
+                                .write();
                     } else {
                         Log.i(TAG, "No alias provided from the credential management app");
                     }
                 }
                 callback.alias(chosenAlias);
             } catch (InterruptedException | RemoteException e) {
-                Log.e(TAG, "Unable to request alias from credential management app");
+                Log.e(TAG, "Unable to request find predefined alias from credential "
+                        + "management app policy");
                 // Proceed without a suggested alias.
                 try {
                     callback.alias(null);
                 } catch (RemoteException shouldNeverHappen) {
                     finish(null);
+                } finally {
+                    DevicePolicyEventLogger
+                            .createEvent(DevicePolicyEnums
+                                    .CREDENTIAL_MANAGEMENT_APP_POLICY_LOOKUP_FAILED)
+                            .write();
                 }
             }
         });
