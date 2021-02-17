@@ -794,10 +794,10 @@ public class KeyChainService extends IntentService {
         @Nullable
         @Override
         public String getPredefinedAliasForPackageAndUri(@NonNull String packageName,
-                @NonNull Uri uri) {
+                @Nullable Uri uri) {
             checkSystemCaller();
             synchronized (mCredentialManagementAppLock) {
-                if (mCredentialManagementApp == null) {
+                if (mCredentialManagementApp == null || uri == null) {
                     return null;
                 }
                 Map<Uri, String> urisToAliases = mCredentialManagementApp.getAuthenticationPolicy()
