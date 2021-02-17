@@ -19,6 +19,7 @@ package com.android.keychain;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
 
+import android.Manifest;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.AppOpsManager;
@@ -484,7 +485,7 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public boolean removeKeyPair(String alias) {
-            checkCertInstallerOrSystemCaller();
+            checkCertInstallerOrSystemCallerOrHasPermission();
             if (!Credentials.deleteAllTypesForAlias(mKeyStore, alias)) {
                 return false;
             }
@@ -583,6 +584,24 @@ public class KeyChainService extends IntentService {
             }
         }
 
+        private void checkCertInstallerOrSystemCallerOrHasPermission() {
+            if (!hasManageCredentialManagementAppPermission()) {
+                checkCertInstallerOrSystemCaller();
+            }
+        }
+
+        private void checkSystemCallerOrHasPermission() {
+            if (!hasManageCredentialManagementAppPermission()) {
+                checkSystemCaller();
+            }
+        }
+
+        private boolean hasManageCredentialManagementAppPermission() {
+            return mContext.checkCallingPermission(
+                    Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+
         private boolean isCallerWithSystemUid() {
             return UserHandle.isSameApp(mInjector.getCallingUid(), Process.SYSTEM_UID);
         }
@@ -679,7 +698,7 @@ public class KeyChainService extends IntentService {
         @Override
         public void setCredentialManagementApp(@NonNull String packageName,
                 @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
-            checkSystemCaller();
+            checkSystemCallerOrHasPermission();
             checkValidAuthenticationPolicy(authenticationPolicy);
 
             synchronized (mCredentialManagementAppLock) {
@@ -789,7 +808,7 @@ public class KeyChainService extends IntentService {
 
         @Override
         public void removeCredentialManagementApp() {
-            checkSystemCaller();
+            checkSystemCallerOrHasPermission();
             synchronized (mCredentialManagementAppLock) {
                 if (mCredentialManagementApp != null) {
                     // Remove all certificates
