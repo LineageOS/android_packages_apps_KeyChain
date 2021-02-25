@@ -713,6 +713,15 @@ public class KeyChainService extends IntentService {
             }
         }
 
+        private void checkSystemCallerOrCredentialManagementAppCaller() {
+            synchronized (mCredentialManagementAppLock) {
+                if (mCredentialManagementApp == null
+                        || !callingPackage().equals(mCredentialManagementApp.getPackageName())) {
+                    checkSystemCaller();
+                }
+            }
+        }
+
         private boolean hasManageCredentialManagementAppPermission() {
             return mContext.checkCallingPermission(
                     Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP)
@@ -904,7 +913,7 @@ public class KeyChainService extends IntentService {
         @Nullable
         @Override
         public AppUriAuthenticationPolicy getCredentialManagementAppPolicy() {
-            checkSystemCaller();
+            checkSystemCallerOrCredentialManagementAppCaller();
             synchronized (mCredentialManagementAppLock) {
                 return mCredentialManagementApp != null
                         ? mCredentialManagementApp.getAuthenticationPolicy()
@@ -938,6 +947,14 @@ public class KeyChainService extends IntentService {
                 }
                 mCredentialManagementApp = null;
                 mStateStorage.saveCredentialManagementApp(mCredentialManagementApp);
+            }
+        }
+
+        @Override
+        public boolean isCredentialManagementApp(@NonNull String packageName) {
+            checkSystemCallerOrCredentialManagementAppCaller();
+            synchronized (mCredentialManagementAppLock) {
+                return packageName.equals(mCredentialManagementApp.getPackageName());
             }
         }
     };
