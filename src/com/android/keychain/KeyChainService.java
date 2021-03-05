@@ -58,6 +58,7 @@ import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.Preconditions;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.keychain.internal.ExistingKeysProvider;
 import com.android.keychain.internal.GrantsDatabase;
@@ -103,6 +104,12 @@ public class KeyChainService extends IntentService {
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
     private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
             new HashSet(Arrays.asList(UID_SELF, Process.WIFI_UID)));
+
+    private static final String MSG_NOT_SYSTEM = "Not system package";
+    private static final String MSG_NOT_SYSTEM_OR_CERT_INSTALLER =
+            "Not system or cert installer package";
+    private static final String MSG_NOT_SYSTEM_OR_CRED_MNG_APP =
+            "Not system or credential management app package";
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -211,11 +218,12 @@ public class KeyChainService extends IntentService {
 
         @Override
         public String requestPrivateKey(String alias) {
-            if (!hasGrant(alias)) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller)) {
                 return null;
             }
 
-            final int granteeUid = mInjector.getCallingUid();
+            final int granteeUid = caller.mUid;
 
             try {
                 final KeyStore2 keyStore2 = KeyStore2.getInstance();
@@ -230,7 +238,7 @@ public class KeyChainService extends IntentService {
 
         @Override
         public String getWifiKeyGrantAsUser(String alias) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
 
             if (!hasGrant(alias, Process.WIFI_UID)) {
                 return null;
@@ -248,7 +256,8 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public byte[] getCertificate(String alias) {
-            if (!hasGrant(alias) && !isCallerWithSystemUid()) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller) && !isSystemUid(caller)) {
                 return null;
             }
             try {
@@ -266,7 +275,8 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public byte[] getCaCertificates(String alias) {
-            if (!hasGrant(alias) && !isCallerWithSystemUid()) {
+            final CallerIdentity caller = getCaller();
+            if (!hasGrant(alias, caller) && !isSystemUid(caller)) {
                 return null;
             }
             try {
@@ -294,7 +304,7 @@ public class KeyChainService extends IntentService {
 
         @Override public void setUserSelectable(String alias, boolean isUserSelectable) {
             validateAlias(alias);
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             Log.i(TAG, String.format("Marking certificate %s as user-selectable: %b", alias,
                     isUserSelectable));
             mGrantsDb.setIsUserSelectable(alias, isUserSelectable);
@@ -302,7 +312,7 @@ public class KeyChainService extends IntentService {
 
         @Override public int generateKeyPair(
                 String algorithm, ParcelableKeyGenParameterSpec parcelableSpec) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             final KeyGenParameterSpec spec = parcelableSpec.getSpec();
             final String alias = spec.getKeystoreAlias();
 
@@ -360,7 +370,7 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean setKeyPairCertificate(String alias, byte[] userCertificate,
                 byte[] userCertificateChain) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
 
             final PrivateKey privateKey;
             try {
@@ -415,8 +425,8 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private boolean hasGrant(String alias) {
-            return hasGrant(alias, mInjector.getCallingUid());
+        private boolean hasGrant(String alias, CallerIdentity caller) {
+            return hasGrant(alias, caller.mUid);
         }
 
         private boolean hasGrant(String alias, int targetUid) {
@@ -433,7 +443,9 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public String installCaCertificate(byte[] caCertificate) {
-            checkCertInstallerOrSystemCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
             final String alias;
             String subject = null;
             final boolean isSecurityLoggingEnabled = mInjector.isSecurityLoggingEnabled();
@@ -471,7 +483,7 @@ public class KeyChainService extends IntentService {
             // anchors. Ultimately, the user should explicitly choose to install the VPN trust
             // anchor separately and independently of CA certificates, at which point this code
             // should be removed.
-            if (CERT_INSTALLER_PACKAGE.equals(callingPackage())) {
+            if (CERT_INSTALLER_PACKAGE.equals(caller.mPackageName)) {
                 try {
                     mKeyStore.setCertificateEntry(String.format("%s %s", subject, alias), cert);
                 } catch(KeyStoreException e) {
@@ -504,7 +516,9 @@ public class KeyChainService extends IntentService {
         @Override public boolean installKeyPair(@Nullable byte[] privateKey,
                 @Nullable byte[] userCertificate, @Nullable byte[] userCertificateChain,
                 String alias, int uid) {
-            checkCertInstallerOrSystemCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
             if (KeyChain.KEY_ALIAS_SELECTION_DENIED.equals(alias)) {
                 throw new IllegalArgumentException("The alias specified for the key denotes "
                         + "a reserved value and cannot be used to name a key");
@@ -595,7 +609,9 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public boolean removeKeyPair(String alias) {
-            checkCertInstallerOrSystemCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller) || isCertInstaller(caller),
+                    MSG_NOT_SYSTEM_OR_CERT_INSTALLER);
             return removeKeyPairInternal(alias);
         }
 
@@ -616,7 +632,7 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public boolean containsKeyPair(String alias) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             try {
                 final Key key = mKeyStore.getKey(alias, null);
                 return key instanceof PrivateKey;
@@ -639,7 +655,7 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean reset() {
             // only Settings should be able to reset
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             mGrantsDb.removeAllAliasesInformation();
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
@@ -660,7 +676,7 @@ public class KeyChainService extends IntentService {
 
         @Override public boolean deleteCaCertificate(String alias) {
             // only Settings should be able to delete
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             boolean ok = true;
             Log.i(TAG, String.format("Deleting CA certificate %s", alias));
             synchronized (mTrustedCertificateStore) {
@@ -700,77 +716,41 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void checkCertInstallerOrSystemCaller() {
-            final String caller = callingPackage();
-            if (!isCallerWithSystemUid() && !CERT_INSTALLER_PACKAGE.equals(caller)) {
-                throw new SecurityException("Not system or cert installer package: " + caller);
-            }
+        private boolean hasManageCredentialManagementAppPermission(CallerIdentity caller) {
+            return mContext.checkPermission(Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP,
+                    caller.mPid, caller.mUid) == PackageManager.PERMISSION_GRANTED;
         }
 
-        private void checkSystemCaller() {
-            if (!isCallerWithSystemUid()) {
-                throw new SecurityException("Not system package: " + callingPackage());
-            }
+        private boolean isCertInstaller(CallerIdentity caller) {
+            return caller.mPackageName != null
+                    && CERT_INSTALLER_PACKAGE.equals(caller.mPackageName);
         }
 
-        private void checkSystemCallerOrHasPermission() {
-            if (!hasManageCredentialManagementAppPermission()) {
-                checkSystemCaller();
-            }
-        }
-
-        private void checkCredentialManagementAppOrSystemCallerOrHasPermission() {
-            if (!hasManageCredentialManagementAppPermission()
-                    && !isCredentialManagementAppCaller()) {
-                checkSystemCaller();
-            }
-        }
-
-        private void checkSystemCallerOrCredentialManagementAppCaller() {
+        private boolean isCredentialManagementApp(CallerIdentity caller) {
             synchronized (mCredentialManagementAppLock) {
-                if (mCredentialManagementApp == null
-                        || !callingPackage().equals(mCredentialManagementApp.getPackageName())) {
-                    checkSystemCaller();
-                }
+                return mCredentialManagementApp != null && caller.mPackageName != null
+                        && caller.mPackageName.equals(mCredentialManagementApp.getPackageName());
             }
         }
 
-        private boolean hasManageCredentialManagementAppPermission() {
-            return mContext.checkCallingPermission(
-                    Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-
-        private boolean isCredentialManagementAppCaller() {
-            synchronized (mCredentialManagementAppLock) {
-                String packageName = callingPackage();
-                return mCredentialManagementApp != null && packageName != null
-                        && packageName.equals(mCredentialManagementApp.getPackageName());
-            }
-        }
-
-        private boolean isCallerWithSystemUid() {
-            return UserHandle.isSameApp(mInjector.getCallingUid(), Process.SYSTEM_UID);
-        }
-
-        private String callingPackage() {
-            return getPackageManager().getNameForUid(mInjector.getCallingUid());
+        private boolean isSystemUid(CallerIdentity caller) {
+            return UserHandle.isSameApp(caller.mUid, Process.SYSTEM_UID);
         }
 
         @Override public boolean hasGrant(int uid, String alias) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             return mGrantsDb.hasGrant(uid, alias);
         }
 
         @Override public void setGrant(int uid, String alias, boolean value) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             mGrantsDb.setGrant(uid, alias, value);
             broadcastPermissionChange(uid, alias, value);
             broadcastLegacyStorageChange();
         }
 
         @Override public int[] getGrants(String alias) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             try {
                 if (mKeyStore.isKeyEntry(alias)) {
                     return mGrantsDb.getGrants(alias);
@@ -849,7 +829,9 @@ public class KeyChainService extends IntentService {
         @Override
         public void setCredentialManagementApp(@NonNull String packageName,
                 @NonNull AppUriAuthenticationPolicy authenticationPolicy) {
-            checkSystemCallerOrHasPermission();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                    || hasManageCredentialManagementAppPermission(caller), MSG_NOT_SYSTEM);
             checkValidAuthenticationPolicy(authenticationPolicy);
 
             synchronized (mCredentialManagementAppLock) {
@@ -914,7 +896,7 @@ public class KeyChainService extends IntentService {
 
         @Override
         public boolean hasCredentialManagementApp() {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             synchronized (mCredentialManagementAppLock) {
                 return mCredentialManagementApp != null;
             }
@@ -923,7 +905,7 @@ public class KeyChainService extends IntentService {
         @Nullable
         @Override
         public String getCredentialManagementAppPackageName() {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             synchronized (mCredentialManagementAppLock) {
                 return mCredentialManagementApp != null
                         ? mCredentialManagementApp.getPackageName()
@@ -934,7 +916,9 @@ public class KeyChainService extends IntentService {
         @Nullable
         @Override
         public AppUriAuthenticationPolicy getCredentialManagementAppPolicy() {
-            checkSystemCallerOrCredentialManagementAppCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                            || isCredentialManagementApp(caller), MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
             synchronized (mCredentialManagementAppLock) {
                 return mCredentialManagementApp != null
                         ? mCredentialManagementApp.getAuthenticationPolicy()
@@ -946,7 +930,7 @@ public class KeyChainService extends IntentService {
         @Override
         public String getPredefinedAliasForPackageAndUri(@NonNull String packageName,
                 @Nullable Uri uri) {
-            checkSystemCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
             synchronized (mCredentialManagementAppLock) {
                 if (mCredentialManagementApp == null || uri == null) {
                     return null;
@@ -959,8 +943,11 @@ public class KeyChainService extends IntentService {
 
         @Override
         public void removeCredentialManagementApp() {
-            // TODO (b/177979648): Refactor authorization checks.
-            checkCredentialManagementAppOrSystemCallerOrHasPermission();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                            || isCredentialManagementApp(caller)
+                            || hasManageCredentialManagementAppPermission(caller),
+                    MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
             synchronized (mCredentialManagementAppLock) {
                 if (mCredentialManagementApp != null) {
                     // Remove all certificates
@@ -974,7 +961,9 @@ public class KeyChainService extends IntentService {
 
         @Override
         public boolean isCredentialManagementApp(@NonNull String packageName) {
-            checkSystemCallerOrCredentialManagementAppCaller();
+            final CallerIdentity caller = getCaller();
+            Preconditions.checkCallAuthorization(isSystemUid(caller)
+                    || isCredentialManagementApp(caller), MSG_NOT_SYSTEM_OR_CRED_MNG_APP);
             synchronized (mCredentialManagementAppLock) {
                 return packageName.equals(mCredentialManagementApp.getPackageName());
             }
@@ -1033,6 +1022,23 @@ public class KeyChainService extends IntentService {
             return "";
         }
         return Base64.encodeToString(cert, Base64.NO_WRAP);
+    }
+
+    private final class CallerIdentity {
+
+        final int mUid;
+        final int mPid;
+        final String mPackageName;
+
+        CallerIdentity() {
+            mUid = mInjector.getCallingUid();
+            mPid = Binder.getCallingPid();
+            mPackageName = getPackageManager().getNameForUid(mUid);
+        }
+    }
+
+    private CallerIdentity getCaller() {
+        return new CallerIdentity();
     }
 
     @VisibleForTesting
