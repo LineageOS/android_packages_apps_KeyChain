@@ -242,6 +242,30 @@ public class KeyChainService extends IntentService {
             }
         }
 
+        @Override
+        public String getWifiKeyGrantAsUser(String alias) {
+            checkSystemCaller();
+
+            if (!hasGrant(alias, Process.WIFI_UID)) {
+                return null;
+            }
+
+            if (AndroidKeyStoreProvider.isKeystore2Enabled()) {
+                KeyStore2 keyStore2 = KeyStore2.getInstance();
+                try {
+                    KeyDescriptor grant = keyStore2.grant(makeKeyDescriptor(alias),
+                            Process.WIFI_UID, KeyPermission.USE | KeyPermission.GET_INFO);
+                    return KeyStore2.makeKeystoreEngineGrantString(grant.nspace);
+                } catch (android.security.KeyStoreException e) {
+                    Log.e(TAG, "Failed to grant " + alias + " to uid: " + Process.WIFI_UID, e);
+                    return null;
+                }
+            } else {
+                Log.e(TAG, "Wifi grants require Keystore2");
+                return null;
+            }
+        }
+
         @Override public byte[] getCertificate(String alias) {
             if (!hasGrant(alias) && !isCallerWithSystemUid()) {
                 return null;
@@ -411,13 +435,16 @@ public class KeyChainService extends IntentService {
         }
 
         private boolean hasGrant(String alias) {
+            return hasGrant(alias, mInjector.getCallingUid());
+        }
+
+        private boolean hasGrant(String alias, int targetUid) {
             validateAlias(alias);
 
-            final int callingUid = mInjector.getCallingUid();
-            if (!mGrantsDb.hasGrant(callingUid, alias)) {
+            if (!mGrantsDb.hasGrant(targetUid, alias)) {
                 Log.w(TAG, String.format(
                         "uid %d doesn't have permission to access the requested alias %s",
-                        callingUid, alias));
+                        targetUid, alias));
                 return false;
             }
 
