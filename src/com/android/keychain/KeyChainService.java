@@ -959,7 +959,7 @@ public class KeyChainService extends IntentService {
                 }
                 Map<Uri, String> urisToAliases = mCredentialManagementApp.getAuthenticationPolicy()
                         .getAppAndUriMappings().get(packageName);
-                return urisToAliases.get(uri);
+                return urisToAliases != null ? urisToAliases.get(uri) : null;
             }
         }
 
