@@ -614,7 +614,11 @@ public class KeyChainService extends IntentService {
         }
 
         @Override public boolean removeKeyPair(String alias) {
-            checkCertInstallerOrSystemCallerOrHasPermission();
+            checkCertInstallerOrSystemCaller();
+            return removeKeyPairInternal(alias);
+        }
+
+        private boolean removeKeyPairInternal(String alias) {
             try {
                 mKeyStore.deleteEntry(alias);
             } catch (KeyStoreException e) {
@@ -728,14 +732,15 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        private void checkCertInstallerOrSystemCallerOrHasPermission() {
+        private void checkSystemCallerOrHasPermission() {
             if (!hasManageCredentialManagementAppPermission()) {
-                checkCertInstallerOrSystemCaller();
+                checkSystemCaller();
             }
         }
 
-        private void checkSystemCallerOrHasPermission() {
-            if (!hasManageCredentialManagementAppPermission()) {
+        private void checkCredentialManagementAppOrSystemCallerOrHasPermission() {
+            if (!hasManageCredentialManagementAppPermission()
+                    && !isCredentialManagementAppCaller()) {
                 checkSystemCaller();
             }
         }
@@ -753,6 +758,14 @@ public class KeyChainService extends IntentService {
             return mContext.checkCallingPermission(
                     Manifest.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP)
                     == PackageManager.PERMISSION_GRANTED;
+        }
+
+        private boolean isCredentialManagementAppCaller() {
+            synchronized (mCredentialManagementAppLock) {
+                String packageName = callingPackage();
+                return mCredentialManagementApp != null && packageName != null
+                        && packageName.equals(mCredentialManagementApp.getPackageName());
+            }
         }
 
         private boolean isCallerWithSystemUid() {
@@ -898,7 +911,7 @@ public class KeyChainService extends IntentService {
             // authentication policy
             for (String existingAlias : existingAliases) {
                 if (!newAliases.contains(existingAlias)) {
-                    removeKeyPair(existingAlias);
+                    removeKeyPairInternal(existingAlias);
                 }
             }
         }
@@ -965,7 +978,8 @@ public class KeyChainService extends IntentService {
 
         @Override
         public void removeCredentialManagementApp() {
-            checkSystemCallerOrHasPermission();
+            // TODO (b/177979648): Refactor authorization checks.
+            checkCredentialManagementAppOrSystemCallerOrHasPermission();
             synchronized (mCredentialManagementAppLock) {
                 if (mCredentialManagementApp != null) {
                     // Remove all certificates
