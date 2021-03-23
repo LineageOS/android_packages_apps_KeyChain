@@ -18,6 +18,7 @@ package com.android.keychain;
 
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_INSTALLED;
 import static android.app.admin.SecurityLog.TAG_CERT_AUTHORITY_REMOVED;
+import static android.security.KeyStore.UID_SELF;
 
 import android.Manifest;
 import android.annotation.NonNull;
@@ -40,11 +41,9 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.security.AppUriAuthenticationPolicy;
 import android.security.CredentialManagementApp;
-import android.security.Credentials;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore2;
-import android.security.keystore.AndroidKeyStoreProvider;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
@@ -103,7 +102,7 @@ public class KeyChainService extends IntentService {
     private static final String TAG = "KeyChain";
     private static final String CERT_INSTALLER_PACKAGE = "com.android.certinstaller";
     private final Set<Integer> ALLOWED_UIDS = Collections.unmodifiableSet(
-            new HashSet(Arrays.asList(android.security.KeyStore.UID_SELF, Process.WIFI_UID)));
+            new HashSet(Arrays.asList(UID_SELF, Process.WIFI_UID)));
 
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
@@ -138,18 +137,13 @@ public class KeyChainService extends IntentService {
             return mKeyStore;
         }
         try {
-            KeyStore keystore = null;
-            if (AndroidKeyStoreProvider.isKeystore2Enabled()) {
-                keystore = KeyStore.getInstance("AndroidKeyStore");
-                keystore.load(
-                        new AndroidKeyStoreLoadStoreParameter(
-                                KeyProperties.NAMESPACE_WIFI));
-            } else {
-                keystore = AndroidKeyStoreProvider.getKeyStoreForUid(Process.WIFI_UID);
-            }
+            final KeyStore keystore = KeyStore.getInstance("AndroidKeyStore");
+            keystore.load(
+                    new AndroidKeyStoreLoadStoreParameter(
+                            KeyProperties.NAMESPACE_WIFI));
             return keystore;
         } catch (IOException | CertificateException | KeyStoreException
-                | NoSuchProviderException | NoSuchAlgorithmException e) {
+                | NoSuchAlgorithmException e) {
             Log.e(TAG, "Failed to open AndroidKeyStore for WI-FI namespace.", e);
             return null;
         }
@@ -223,22 +217,14 @@ public class KeyChainService extends IntentService {
 
             final int granteeUid = mInjector.getCallingUid();
 
-            if (AndroidKeyStoreProvider.isKeystore2Enabled()) {
-                KeyStore2 keyStore2 = KeyStore2.getInstance();
-                try {
-                    KeyDescriptor grant = keyStore2.grant(makeKeyDescriptor(alias), granteeUid,
-                            KeyPermission.USE | KeyPermission.GET_INFO);
-                    return KeyChain.getGrantString(grant);
-                } catch (android.security.KeyStoreException e) {
-                    Log.e(TAG, "Failed to grant " + alias + " to uid: " + granteeUid, e);
-                    return null;
-                }
-            } else {
-                android.security.KeyStore keyStore = android.security.KeyStore.getInstance();
-                final String keystoreAlias = Credentials.USER_PRIVATE_KEY + alias;
-                Log.i(TAG, String.format("UID %d will be granted access to %s", granteeUid,
-                        keystoreAlias));
-                return keyStore.grant(keystoreAlias, granteeUid);
+            try {
+                final KeyStore2 keyStore2 = KeyStore2.getInstance();
+                KeyDescriptor grant = keyStore2.grant(makeKeyDescriptor(alias), granteeUid,
+                        KeyPermission.USE | KeyPermission.GET_INFO);
+                return KeyChain.getGrantString(grant);
+            } catch (android.security.KeyStoreException e) {
+                Log.e(TAG, "Failed to grant " + alias + " to uid: " + granteeUid, e);
+                return null;
             }
         }
 
@@ -310,7 +296,7 @@ public class KeyChainService extends IntentService {
             }
             // Validate the alias here to avoid relying on KeyGenParameterSpec c'tor preventing
             // the creation of a KeyGenParameterSpec instance with a non-empty alias.
-            if (TextUtils.isEmpty(alias) || spec.getUid() != android.security.KeyStore.UID_SELF) {
+            if (TextUtils.isEmpty(alias) || spec.getUid() != UID_SELF) {
                 Log.e(TAG, "Cannot generate key pair with empty alias or specified uid.");
                 return KeyChain.KEY_GEN_MISSING_ALIAS;
             }
@@ -486,7 +472,7 @@ public class KeyChainService extends IntentService {
          * @param userCertificateChain The rest of the chain for the client certificate
          * @param alias The alias under which the key pair is installed. It is invalid to pass
          *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
-         * @param uid Can be only one of two values: Either {@code KeyStore.UID_SELF} to indicate
+         * @param uid Can be only one of two values: Either {@code KeyChain.UID_SELF} to indicate
          *            installation into the current user's system Keystore instance, or
          *            {@code Process.WIFI_UID} to indicate installation into the main user's
          *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
