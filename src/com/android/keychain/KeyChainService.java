@@ -472,11 +472,11 @@ public class KeyChainService extends IntentService {
          * @param userCertificateChain The rest of the chain for the client certificate
          * @param alias The alias under which the key pair is installed. It is invalid to pass
          *              {@code KeyChain.KEY_ALIAS_SELECTION_DENIED}.
-         * @param uid Can be only one of two values: Either {@code KeyChain.UID_SELF} to indicate
-         *            installation into the current user's system Keystore instance, or
-         *            {@code Process.WIFI_UID} to indicate installation into the main user's
-         *            WiFi Keystore instance. It is only valid to pass {@code Process.WIFI_UID} to
-         *            the KeyChain service on user 0.
+         * @param uid Can be only one of two values: Either
+         *            {@code android.security.KeyStore.UID_SELF} to indicate installation into the
+         *            current user's system Keystore instance, or {@code Process.WIFI_UID} to
+         *            indicate installation into the main user's WiFi Keystore instance. It is only
+         *            valid to pass {@code Process.WIFI_UID} to the KeyChain service on user 0.
          * @return Whether the operation succeeded or not.
          */
         @Override public boolean installKeyPair(@Nullable byte[] privateKey,
