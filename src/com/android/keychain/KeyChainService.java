@@ -742,11 +742,20 @@ public class KeyChainService extends IntentService {
             return mGrantsDb.hasGrant(uid, alias);
         }
 
-        @Override public void setGrant(int uid, String alias, boolean value) {
+        @Override public boolean setGrant(int uid, String alias, boolean granted) {
             Preconditions.checkCallAuthorization(isSystemUid(getCaller()), MSG_NOT_SYSTEM);
-            mGrantsDb.setGrant(uid, alias, value);
-            broadcastPermissionChange(uid, alias, value);
+            mGrantsDb.setGrant(uid, alias, granted);
+            if (!granted) {
+                try {
+                    KeyStore2.getInstance().ungrant(makeKeyDescriptor(alias), uid);
+                } catch (android.security.KeyStoreException e) {
+                    Log.e(TAG, "Failed to ungrant " + alias + " to uid: " + uid, e);
+                    return false;
+                }
+            }
+            broadcastPermissionChange(uid, alias, granted);
             broadcastLegacyStorageChange();
+            return true;
         }
 
         @Override public int[] getGrants(String alias) {
