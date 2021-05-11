@@ -129,7 +129,7 @@ public class KeyChainService extends IntentService {
 
     private static KeyStore getKeyStore() {
         try {
-            final KeyStore keystore = KeyStore.getInstance("AndroidKeyStore");
+            final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             keystore.load(null);
             return keystore;
         } catch (KeyStoreException | IOException | NoSuchAlgorithmException
@@ -144,7 +144,7 @@ public class KeyChainService extends IntentService {
             return mKeyStore;
         }
         try {
-            final KeyStore keystore = KeyStore.getInstance("AndroidKeyStore");
+            final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             keystore.load(
                     new AndroidKeyStoreLoadStoreParameter(
                             KeyProperties.NAMESPACE_WIFI));

@@ -39,7 +39,6 @@ import android.security.AppUriAuthenticationPolicy;
 import android.security.IKeyChainService;
 
 import com.android.org.conscrypt.TrustedCertificateStore;
-import com.android.keychain.ShadowKeyStore;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -64,7 +63,6 @@ import javax.security.auth.x500.X500Principal;
 @RunWith(RobolectricTestRunner.class)
 @Config(shadows = {
     ShadowTrustedCertificateStore.class,
-    ShadowKeyStore.class
 })
 public final class KeyChainServiceRoboTest {
     private IKeyChainService.Stub mKeyChain;
