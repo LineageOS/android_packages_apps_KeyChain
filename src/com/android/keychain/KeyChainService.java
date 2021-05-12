@@ -114,7 +114,7 @@ public class KeyChainService extends IntentService {
     /** created in onCreate(), closed in onDestroy() */
     private GrantsDatabase mGrantsDb;
     private Injector mInjector;
-    private final KeyStore mKeyStore = getKeyStore();
+    private KeyStore mKeyStore;
     private KeyChainStateStorage mStateStorage;
 
     private Object mCredentialManagementAppLock = new Object();
@@ -127,9 +127,9 @@ public class KeyChainService extends IntentService {
         mInjector = new Injector();
     }
 
-    private static KeyStore getKeyStore() {
+    private KeyStore getKeyStore() {
         try {
-            final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            final KeyStore keystore = mInjector.getKeyStoreInstance();
             keystore.load(null);
             return keystore;
         } catch (KeyStoreException | IOException | NoSuchAlgorithmException
@@ -144,7 +144,7 @@ public class KeyChainService extends IntentService {
             return mKeyStore;
         }
         try {
-            final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            final KeyStore keystore = mInjector.getKeyStoreInstance();
             keystore.load(
                     new AndroidKeyStoreLoadStoreParameter(
                             KeyProperties.NAMESPACE_WIFI));
@@ -158,6 +158,7 @@ public class KeyChainService extends IntentService {
 
     @Override public void onCreate() {
         super.onCreate();
+        mKeyStore = getKeyStore();
         mGrantsDb = new GrantsDatabase(this, new KeyStoreAliasesProvider(mKeyStore));
         mStateStorage = new KeyChainStateStorage(getDataDir());
 
@@ -1070,6 +1071,10 @@ public class KeyChainService extends IntentService {
 
         public int getCallingUid() {
             return Binder.getCallingUid();
+        }
+
+        public KeyStore getKeyStoreInstance() throws KeyStoreException {
+            return KeyStore.getInstance("AndroidKeyStore");
         }
     }
 }
