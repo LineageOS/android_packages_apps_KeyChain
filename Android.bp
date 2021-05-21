@@ -20,6 +20,7 @@ android_app {
     name: "KeyChain",
     static_libs: [
         "bouncycastle-unbundled",
+        "com.google.android.material_material",
     ],
     srcs: ["src/**/*.java"],
     platform_apis: true,

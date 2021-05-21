@@ -20,6 +20,7 @@
         <activity android:name="com.android.keychain.KeyChainActivity"
                   android:exported="true"
                   android:theme="@style/KeyChainTransparent"
+                  android:launchMode="singleTop"
 		  android:excludeFromRecents="true">
 	    <intent-filter>
 	        <action android:name="com.android.keychain.CHOOSER"/>
