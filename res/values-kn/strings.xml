@@ -23,5 +23,6 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"ಬಾಹ್ಯ ಸಂಗ್ರಹಣೆಯಲ್ಲಿ ಸಂಗ್ರಹವಾಗಿರುವ %1$s ಅಥವಾ %2$s ವಿಸ್ತರಣೆಯೊಂದಿಗೆ PKCS#12 ಫೈಲ್‌ನಿಂದ ನೀವು ಪ್ರಮಾಣಪತ್ರಗಳನ್ನು ಸ್ಥಾಪಿಸಬಹುದು."</string>
     <string name="allow_button" msgid="3030990695030371561">"ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="deny_button" msgid="3766539809121892584">"ನಿರಾಕರಿಸಿ"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"ಪ್ರಮಾಣಪತ್ರವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ..."</string>
+    <!-- no translation found for loading_certs_message (2152223341043639547) -->
+    <skip />
 </resources>
