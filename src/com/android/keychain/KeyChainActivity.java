@@ -83,7 +83,7 @@ public class KeyChainActivity extends AppCompatActivity {
     // The amount of time to delay showing a snackbar. If the alias is received before the snackbar
     // is shown, the activity will finish. If the certificate selection dialog is shown before the
     // snackbar, no snackbar will be shown.
-    private static final long SNACKBAR_DELAY_TIME = 1000;
+    private static final long SNACKBAR_DELAY_TIME = 2000;
     // The minimum amount of time to display a snackbar while loading certificates.
     private static final long SNACKBAR_MIN_TIME = 1000;
 
