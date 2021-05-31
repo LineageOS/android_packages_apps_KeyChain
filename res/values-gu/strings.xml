@@ -23,6 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"તમે બાહ્ય સ્ટોરેજ પર સ્થિત %1$s અથવા %2$s એક્સ્ટેન્શન સાથે PKCS#12 ફાઇલમાંથી પ્રમાણપત્રો ઇન્સ્ટૉલ કરી શકો છો."</string>
     <string name="allow_button" msgid="3030990695030371561">"પસંદ કરો"</string>
     <string name="deny_button" msgid="3766539809121892584">"નકારો"</string>
-    <!-- no translation found for loading_certs_message (2152223341043639547) -->
-    <skip />
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s પ્રમાણપત્ર ચેક કરી રહ્યાં છીએ…"</string>
 </resources>
