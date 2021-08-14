@@ -18,8 +18,8 @@ package com.android.keychain;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -39,7 +39,6 @@ import android.security.AppUriAuthenticationPolicy;
 import android.security.IKeyChainService;
 
 import com.android.org.conscrypt.TrustedCertificateStore;
-import com.android.keychain.ShadowKeyStore;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +54,7 @@ import org.robolectric.shadows.ShadowPackageManager;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -64,9 +64,11 @@ import javax.security.auth.x500.X500Principal;
 @RunWith(RobolectricTestRunner.class)
 @Config(shadows = {
     ShadowTrustedCertificateStore.class,
-    ShadowKeyStore.class
 })
 public final class KeyChainServiceRoboTest {
+
+    private static final String DEFAULT_KEYSTORE_TYPE = "BKS";
+
     private IKeyChainService.Stub mKeyChain;
 
     @Mock
@@ -128,9 +130,13 @@ public final class KeyChainServiceRoboTest {
         mShadowPackageManager = shadowOf(packageManager);
 
         final ServiceController<KeyChainService> serviceController =
-                Robolectric.buildService(KeyChainService.class).create().bind();
+                Robolectric.buildService(KeyChainService.class);
         final KeyChainService service = serviceController.get();
         service.setInjector(mockInjector);
+        doReturn(KeyStore.getInstance(DEFAULT_KEYSTORE_TYPE))
+                .when(mockInjector).getKeyStoreInstance();
+        serviceController.create().bind();
+
         final Intent intent = new Intent(IKeyChainService.class.getName());
         mKeyChain = (IKeyChainService.Stub) service.onBind(intent);
     }
