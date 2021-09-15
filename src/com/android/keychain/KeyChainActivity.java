@@ -61,6 +61,8 @@ import java.util.List;
 
 import javax.security.auth.x500.X500Principal;
 
+import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 public class KeyChainActivity extends Activity {
     private static final String TAG = "KeyChain";
 
@@ -84,6 +86,7 @@ public class KeyChainActivity extends Activity {
 
     @Override public void onCreate(Bundle savedState) {
         super.onCreate(savedState);
+        getWindow().addPrivateFlags(PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         if (savedState == null) {
             mState = State.INITIAL;
         } else {
