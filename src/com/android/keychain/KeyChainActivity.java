@@ -65,6 +65,8 @@ import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 public class KeyChainActivity extends Activity {
     private static final String TAG = "KeyChain";
 
@@ -81,6 +83,12 @@ public class KeyChainActivity extends Activity {
     // do not cause StrictMode violations, they logically should not
     // be done on the UI thread.
     private KeyStore mKeyStore = KeyStore.getInstance();
+
+    @Override
+    protected void onCreate(Bundle savedState) {
+        super.onCreate(savedState);
+        getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
+    }
 
     @Override public void onResume() {
         super.onResume();
