@@ -323,6 +323,9 @@ public class KeyChainActivity extends Activity {
                 finish(null);
             }
         });
+        dialog.create();
+        // Prevents screen overlay attack.
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).setFilterTouchesWhenObscured(true);
         dialog.show();
     }
 
