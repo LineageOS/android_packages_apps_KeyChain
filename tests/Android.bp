@@ -36,9 +36,9 @@ android_test {
     libs: [
         "android.test.base",
     ],
-    test_suites: ["general-tests"],
-    required: [
-        "KeyChainTestsSupport",
+    test_suites: ["device-tests"],
+    data: [
+        ":KeyChainTestsSupport",
     ],
 
     instrumentation_for: "KeyChain",
