@@ -15,10 +15,18 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name">Cadwyn Allweddi</string>
+    <!-- Dialog title when at least one certificate was found -->
     <string name="title_select_cert">Dewisa dystysgrif</string>
-    <string name="requesting_application">Mae\'r ap %s wedi gwneud cais am dystysgrif. Bydd dewis tystysgrif yn caniatáu i\'r ap ddefnyddio\'r hunaniaeth hon gyda\'r gweinyddion nawr ac yn y dyfodol.</string>
+    <!-- Used at top of dialog to identify requesting application -->
+    <string name="requesting_application">Mae\'r ap %s wedi gwneud cais am dystysgrif. Bydd dewis tystysgrif yn caniatáu yr ap i ddefnyddio\'r hunaniaeth hon gyda\'r gweinyddion nawr ac yn y dyfodol.</string>
+    <!-- Used at top of dialog to identify requesting server (may be host:port or just host)-->
     <string name="requesting_server">Mae\'r ap wedi adnabod y gweinydd sy\'n gwneud y cais fel %s, ond fe ddylet ond caniatáu mynediad at y dystysgrif gan yr ap os wyt ti\'n ymddiried yn yr ap.</string>
+    <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
     <string name="install_new_cert_message">Mae\'n bosib gosod tystysgrifau o ffeil PKCS#12 ar y storfa allanol gydag estyniad %1$s neu %2$s.</string>
+    <!-- Label of button to select the certificate and allow the application certificate request -->
     <string name="allow_button">Dewis</string>
+    <!-- Label of button to send the deny the application certificate request -->
     <string name="deny_button">Gwrthod</string>
+    <!-- Text to show while the KeyChain activity is loading certificates. -->
+    <string name="loading_certs_message">Yn llwytho tystysgrifau...</string>
 </resources>
