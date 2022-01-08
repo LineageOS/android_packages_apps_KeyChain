@@ -20,5 +20,6 @@
     <string name="requesting_application">Dh’iarr aplacaid %s teisteanas. Ma thaghas tu teisteanas, ’s urrainn dhan aplacaid an dearbh-aithne sin a chleachdadh le frithealaichean o seo a-mach.</string>
     <string name="requesting_server">Dh’aithnich an aplacaid frithealaiche an iarrtais mar %s. Gidheadh, cha bu chòir dhut inntrigeadh dhan teisteanas a thoirt dhan aplacaid ach ma tha earbsa agad innte.</string>
     <string name="install_new_cert_message">’S urrainn dhut teisteanasan a stàladh o fhaidhle PKCS#12 le leudachan %1$s no %2$s a tha ann an stòras air an taobh a-muigh.</string>
+    <string name="allow_button">Tagh</string>
     <string name="deny_button">Diùlt</string>
 </resources>
