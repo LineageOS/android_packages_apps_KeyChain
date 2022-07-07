@@ -372,7 +372,7 @@ public class KeyChainActivity extends Activity {
         Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
         if (uri != null) {
             String hostMessage = String.format(res.getString(R.string.requesting_server),
-                                               uri.getAuthority());
+                    Uri.encode(uri.getAuthority(), "$,;:@&=+"));
             if (contextMessage == null) {
                 contextMessage = hostMessage;
             } else {
