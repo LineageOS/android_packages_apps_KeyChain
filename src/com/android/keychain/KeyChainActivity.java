@@ -27,6 +27,7 @@ import android.app.admin.IDevicePolicyManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
@@ -42,6 +43,7 @@ import android.os.UserManager;
 import android.security.IKeyChainAliasCallback;
 import android.security.KeyChain;
 import android.stats.devicepolicy.DevicePolicyEnums;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -576,11 +578,23 @@ public class KeyChainActivity extends AppCompatActivity {
 
     private String getApplicationLabel() {
         PackageManager pm = getPackageManager();
+        String label;
         try {
-            return pm.getApplicationLabel(pm.getApplicationInfo(mSenderPackageName, 0)).toString();
+            label = pm.getApplicationLabel(pm.getApplicationInfo(mSenderPackageName, 0)).toString();
         } catch (PackageManager.NameNotFoundException e) {
-            return mSenderPackageName;
+            label = mSenderPackageName;
         }
+        // Sanitize newlines, tabs, and other vertical space characters, replacing them with a
+        // single space. Also consolidate any multiple spaces into a single space and trim.
+        if (label != null) {
+            label = TextUtils.makeSafeForPresentation(
+                    label,
+                    PackageItemInfo.MAX_SAFE_LABEL_LENGTH,
+                    PackageItemInfo.DEFAULT_MAX_LABEL_SIZE_PX,
+                    TextUtils.SAFE_STRING_FLAG_TRIM | TextUtils.SAFE_STRING_FLAG_FIRST_LINE)
+                        .toString();
+        }
+        return label;
     }
 
     @VisibleForTesting
